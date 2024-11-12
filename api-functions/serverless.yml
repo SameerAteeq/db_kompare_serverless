@@ -1,0 +1,49 @@
+org: dbkompare
+app: db-kompare
+service: api-functions
+configValidationMode: error
+
+custom:
+  domain:
+    dev: http://localhost:3000
+    prod: https://easy-doc-web-silk.vercel.app
+  lambdaInitialArn: arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}
+  databasesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.DATABASES_TABLE}
+  metricesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.METRICES_TABLE}
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-west-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    DATABASES_TABLE: db-kompare-databases-${self:provider.stage}
+    METRICES_TABLE: db-kompare-metrices-${self:provider.stage}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:Query
+          Resource:
+            - ${self:custom.databasesTableArn} # Permission for databases table
+            - ${self:custom.metricesTableArn} # Permission for metrices table
+functions:
+  createDatabase:
+    handler: functions/databases/createDatabase.handler
+    events:
+      - httpApi:
+          path: /create-database
+          method: post
+  getAllDatabases:
+    handler: functions/databases/getAllDatabases.handler
+    events:
+      - httpApi:
+          path: /get-databases
+          method: get
