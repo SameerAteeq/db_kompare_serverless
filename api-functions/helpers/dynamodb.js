@@ -167,7 +167,53 @@ let updateItemInDynamoDB = ({
 let transactWriteInDynamoDB = (items) => {
   return DynamoDBClient.transactWrite(items).promise();
 };
+const fetchAllItemByDynamodbIndex = async ({
+  TableName,
+  IndexName,
+  KeyConditionExpression,
+  ExpressionAttributeValues,
+  FilterExpression = null,
+  ExpressionAttributeNames = null,
+  Limit = null,
+}) => {
+  let lastEvaluatedKey = undefined;
+  const allItems = [];
 
+  try {
+    do {
+      const params = {
+        TableName,
+        IndexName,
+        KeyConditionExpression,
+        ExpressionAttributeValues,
+        ExclusiveStartKey: lastEvaluatedKey,
+        ScanIndexForward: true,
+      };
+
+      if (FilterExpression) {
+        params.FilterExpression = FilterExpression;
+      }
+
+      if (ExpressionAttributeNames) {
+        params.ExpressionAttributeNames = ExpressionAttributeNames;
+      }
+
+      if (Limit) {
+        params.Limit = Limit;
+      }
+
+      const response = await DynamoDBClient.query(params).promise();
+
+      allItems.push(...response.Items);
+      lastEvaluatedKey = response.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+  } catch (error) {
+    console.log("Failed to fetch items:", JSON.stringify(error));
+    throw new Error("Error fetching items from DynamoDB", error);
+  }
+
+  return allItems;
+};
 module.exports = {
   transactWriteInDynamoDB,
   createItemInDynamoDB,
@@ -182,4 +228,5 @@ module.exports = {
   updateItemInDynamoDB,
   writeBatchItemsInMultipleTables,
   describeTable,
+  fetchAllItemByDynamodbIndex,
 };

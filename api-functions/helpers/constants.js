@@ -9,7 +9,13 @@ const STATUS_CODE = {
   SUCCESS: 200,
 };
 
+const DATABASE_STATUS = {
+  ACTIVE: "ACTIVE",
+  INACTIVE: "INACTIVE",
+};
+
 module.exports = {
   STATUS_CODE,
   TABLE_NAME,
+  DATABASE_STATUS,
 };

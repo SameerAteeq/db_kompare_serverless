@@ -32,6 +32,7 @@ provider:
             - dynamodb:Scan
             - dynamodb:Query
           Resource:
+            - ${self:custom.databasesTableArn}/index/byStatus
             - ${self:custom.databasesTableArn} # Permission for databases table
             - ${self:custom.metricesTableArn} # Permission for metrices table
 functions:
@@ -41,9 +42,15 @@ functions:
       - httpApi:
           path: /create-database
           method: post
-  getAllDatabases:
+  getallDatabases:
     handler: functions/databases/getAllDatabases.handler
     events:
       - httpApi:
           path: /get-databases
           method: get
+  addMetrices:
+    handler: functions/metrices/addMetrices.handler
+    events:
+      - httpApi:
+          path: /add-metrices
+          method: post

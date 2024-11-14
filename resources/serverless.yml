@@ -18,11 +18,19 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
+          - AttributeName: status
+            AttributeType: S
         KeySchema:
           - AttributeName: id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
-
+        GlobalSecondaryIndexes:
+          - IndexName: byStatus
+            KeySchema:
+              - AttributeName: status
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
     Metrices:
       Type: AWS::DynamoDB::Table
       Properties:
