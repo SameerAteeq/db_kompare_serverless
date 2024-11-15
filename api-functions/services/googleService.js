@@ -72,7 +72,7 @@ async function getGoogleMetrics(queries) {
         totalResults,
       });
     }
-
+    console.log("metrics in google", results);
     return results;
   } catch (error) {
     console.error(`Error fetching Google data`, error.message);
@@ -80,4 +80,4 @@ async function getGoogleMetrics(queries) {
   }
 }
 
-export { getGoogleMetrics };
+module.exports = { getGoogleMetrics };

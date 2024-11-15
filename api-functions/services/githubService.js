@@ -112,7 +112,7 @@ async function getGitHubMetrics(query) {
   let cumulativeIssuesCount = 0;
 
   const metrics = await fetchMetricsByDateRange(query, date, processedRepoIds);
-
+  console.log("metrics in githunb", metrics);
   if (metrics) {
     cumulativeStars += metrics.totalStars;
     cumulativeRepos += metrics.totalRepos;
@@ -121,7 +121,7 @@ async function getGitHubMetrics(query) {
   }
 
   const issuesCount = await fetchTotalIssuesCount(query, date);
-
+  console.log("issuesCount", issuesCount);
   if (issuesCount !== null) {
     console.log(
       `Fetched total issues count for "${query}" for ${date}: ${issuesCount}`
@@ -140,4 +140,4 @@ async function getGitHubMetrics(query) {
   };
 }
 
-export { getGitHubMetrics };
+module.exports = { getGitHubMetrics };

@@ -1,5 +1,5 @@
-const { getDayTimestamps } = require("../utils/helper.js");
-import moment from "moment";
+const { getDayTimestamps } = require("../helpers/helpers.js");
+
 const axios = require("axios");
 const moment = require("moment");
 
@@ -15,6 +15,12 @@ async function getStackOverflowMetrics(databaseName) {
       await getStackOverflowQuestionsCount(databaseName, date);
     const totalQuestionsAllTime = await getStackOverflowQuestionsCountAllTime(
       databaseName
+    );
+    console.log(
+      "metrics in sflow",
+      totalQuestions,
+      totalViewCount,
+      totalQuestionsAllTime
     );
 
     return { totalQuestions, totalViewCount, totalQuestionsAllTime };
@@ -100,5 +106,6 @@ async function getStackOverflowQuestionsCountAllTime(databaseName) {
     return null;
   }
 }
-
-export { getStackOverflowMetrics };
+module.exports = {
+  getStackOverflowMetrics,
+};

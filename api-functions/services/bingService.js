@@ -48,4 +48,4 @@ async function getBingMetrics(queries) {
   }
 }
 
-export { getBingMetrics };
+module.exports = { getBingMetrics };

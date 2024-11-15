@@ -87,7 +87,7 @@ let getItemByIndex = (
 
 const getItem = (table, Key) => {
   const params = {
-    TableName: getTableName(table),
+    TableName: table,
     Key,
   };
   return DynamoDBClient.get(params).promise();

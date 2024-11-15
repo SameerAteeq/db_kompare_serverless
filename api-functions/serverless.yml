@@ -3,13 +3,18 @@ app: db-kompare
 service: api-functions
 configValidationMode: error
 
+useDotenv: true
+
 custom:
-  domain:
-    dev: http://localhost:3000
-    prod: https://easy-doc-web-silk.vercel.app
   lambdaInitialArn: arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}
   databasesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.DATABASES_TABLE}
   metricesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.METRICES_TABLE}
+  serverless-offline:
+    httpPort: 4000
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
 
 provider:
   name: aws
@@ -19,6 +24,11 @@ provider:
   environment:
     DATABASES_TABLE: db-kompare-databases-${self:provider.stage}
     METRICES_TABLE: db-kompare-metrices-${self:provider.stage}
+    STACK_API_KEY: ${env:STACK_API_KEY}
+    GITHUB_TOKEN: ${env:GITHUB_TOKEN}
+    GOOGLE_API_KEY: ${env:GOOGLE_API_KEY}
+    GOOGLE_CSE_ID: ${env:GOOGLE_CSE_ID}
+    BING_API_KEY: ${env:BING_API_KEY}
 
   iam:
     role:
@@ -31,6 +41,7 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Scan
             - dynamodb:Query
+            - dynamodb:BatchGetItem
           Resource:
             - ${self:custom.databasesTableArn}/index/byStatus
             - ${self:custom.databasesTableArn} # Permission for databases table
@@ -48,8 +59,15 @@ functions:
       - httpApi:
           path: /get-databases
           method: get
+  getDatabasesByIds:
+    handler: functions/databases/getDatabaseByIds.handler
+    events:
+      - http:
+          path: /get-database-by-ids
+          method: post
   addMetrices:
     handler: functions/metrices/addMetrices.handler
+    timeout: 120
     events:
       - httpApi:
           path: /add-metrices
