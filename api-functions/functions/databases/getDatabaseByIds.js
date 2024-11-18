@@ -6,17 +6,17 @@ module.exports.handler = async (event) => {
   try {
     const { ids } = JSON.parse(event.body);
 
+    // Validate IDs
+    if (!ids || !Array.isArray(ids)) {
+      return sendResponse(400, "An array of database IDs is required", null);
+    }
+
     if (ids.length > 5) {
       return sendResponse(
         400,
         "You can request a maximum of 5 databases at a time.",
         null
       );
-    }
-
-    // Validate IDs
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return sendResponse(400, "An array of database IDs is required", null);
     }
 
     // Create Keys for batchGet

@@ -42,6 +42,7 @@ provider:
             - dynamodb:Scan
             - dynamodb:Query
             - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
           Resource:
             - ${self:custom.databasesTableArn}/index/byStatus
             - ${self:custom.databasesTableArn} # Permission for databases table
@@ -50,13 +51,13 @@ functions:
   createDatabase:
     handler: functions/databases/createDatabase.handler
     events:
-      - httpApi:
+      - http:
           path: /create-database
           method: post
   getallDatabases:
     handler: functions/databases/getAllDatabases.handler
     events:
-      - httpApi:
+      - http:
           path: /get-databases
           method: get
   getDatabasesByIds:
@@ -65,10 +66,23 @@ functions:
       - http:
           path: /get-database-by-ids
           method: post
+          cors: true
   addMetrices:
     handler: functions/metrices/addMetrices.handler
     timeout: 120
     events:
-      - httpApi:
+      - http:
           path: /add-metrices
           method: post
+  # addBasicMetrices:
+  #   handler: functions/metrices/addBasicMetrices.handler
+  #   timeout: 120
+  #   events:
+  #     - schedule:
+  #         rate: rate(5 minutes)
+  getGithubMetrices:
+    handler: functions/metrices/getGithubMetrices.handler
+    timeout: 120
+    events:
+      - schedule:
+          rate: rate(5 minutes)

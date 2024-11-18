@@ -87,7 +87,7 @@ module.exports.handler = async (event) => {
       },
     });
 
-    console.log("Two Days Ago Metrics:", twoDaysAgoMetrics);
+    console.log("Two Days Ago Metrics:", JSON.stringify(twoDaysAgoMetrics));
 
     // Fetch metrics data
     const metricsData = await fetchMetrics(databaseDoc, twoDaysAgoMetrics);
@@ -133,44 +133,19 @@ async function fetchMetrics(databaseDoc, twoDaysAgoMetrics) {
     const {
       isBingDataCopied: previousBingDataCopied,
       bingData: existingBingData,
-    } = twoDaysAgoMetrics;
+    } = twoDaysAgoMetrics?.Items[0];
 
     let bingData;
     let isBingDataCopied;
-    const data = [
-      {
-        query: "Microsoft SQL Server",
-        totalResultsWithoutDate: 560000,
-      },
-      {
-        query: "Microsoft SQL Server",
-        totalResultsWithDate: 100,
-      },
-      {
-        query: "SQL Server issues",
-        totalResults: 300,
-      },
-      {
-        query: "SQL Server crash",
-        totalResults: 8960,
-      },
-      {
-        query: "SQL Server slow",
-        totalResults: 7360,
-      },
-      {
-        query: "SQL Server stuck",
-        totalResults: 3410,
-      },
-    ];
+
     if (previousBingDataCopied) {
       // Fetch new Bing data since previous data was copied
-      // bingData = await getBingMetrics(queries);
-      bingData = data;
+      bingData = await getBingMetrics(queries);
+      // bingData = data;
       isBingDataCopied = false; // Data is fresh, not reused
-    } else if (twoDaysAgoMetrics.Items.length > 0) {
+    } else {
       // Reuse Bing data from two days ago
-      bingData = twoDaysAgoMetrics.Items[0].bingData || [];
+      bingData = existingBingData || [];
       isBingDataCopied = true; // Data is reused
     }
 

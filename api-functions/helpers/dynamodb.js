@@ -103,6 +103,30 @@ const writeBatchItems = (table, items) => {
   return DynamoDBClient.batchWrite(params).promise();
 };
 
+// Helper function to batch write items
+const batchWriteItems = (tableName, items) => {
+  const batches = [];
+  const BATCH_SIZE = 25;
+
+  // Split items into batches of 25 (DynamoDB limit)
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    batches.push(items.slice(i, i + BATCH_SIZE));
+  }
+
+  // Write each batch
+  for (const batch of batches) {
+    const params = {
+      RequestItems: {
+        [tableName]: batch.map((item) => ({
+          PutRequest: { Item: item },
+        })),
+      },
+    };
+
+    return DynamoDBClient.batchWrite(params).promise();
+  }
+};
+
 const writeBatchItemsInMultipleTables = (params) => {
   return DynamoDBClient.batchWrite(params).promise();
 };
@@ -229,4 +253,5 @@ module.exports = {
   writeBatchItemsInMultipleTables,
   describeTable,
   fetchAllItemByDynamodbIndex,
+  batchWriteItems,
 };
