@@ -21,6 +21,7 @@ provider:
   runtime: nodejs20.x
   region: eu-west-1
   stage: ${opt:stage, 'dev'}
+  profile: dbkompare
   environment:
     DATABASES_TABLE: db-kompare-databases-${self:provider.stage}
     METRICES_TABLE: db-kompare-metrices-${self:provider.stage}
@@ -76,7 +77,6 @@ functions:
           method: post
   # addBasicMetrices:
   #   handler: functions/metrices/addBasicMetrices.handler
-  #   timeout: 120
   #   events:
   #     - schedule:
   #         rate: rate(5 minutes)
@@ -84,5 +84,12 @@ functions:
     handler: functions/metrices/getGithubMetrices.handler
     timeout: 120
     events:
-      - schedule:
-          rate: rate(5 minutes)
+      - http:
+          path: /get-github-metrices
+          method: get
+
+  # getStackoverflowMetrices:
+  #   handler: functions/metrices/getStackoverflowMetrices.handler
+  #   events:
+  #     - schedule:
+  #         rate: cron(2/5 * * * ? *)

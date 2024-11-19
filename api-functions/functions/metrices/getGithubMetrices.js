@@ -97,7 +97,6 @@ module.exports.handler = async (event) => {
         },
       });
 
-      await delay(5000);
       console.log(
         `Successfully updated GitHub data for database_id: ${databaseId}`
       );

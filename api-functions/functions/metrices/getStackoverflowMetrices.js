@@ -23,7 +23,7 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    console.log("Fetching all active databases...");
+    console.log("Fetching all active databases for stackOverflowData...");
 
     // Fetch all active databases
     const databases = await fetchAllItemByDynamodbIndex({
@@ -60,7 +60,9 @@ module.exports.handler = async (event) => {
       console.log(
         `Fetching GitHub metrics for database_id: ${databaseId} with query: ${stack_overflow_tag[0]}`
       );
-      const githubData = await getStackOverflowMetrics(stack_overflow_tag);
+      const stackOverflowData = await getStackOverflowMetrics(
+        stack_overflow_tag
+      );
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -94,21 +96,29 @@ module.exports.handler = async (event) => {
           database_id: metric.database_id,
           date: metric.date,
         },
-        UpdateExpression: "SET githubData = :githubData",
+        UpdateExpression: "SET stackOverflowData = :stackOverflowData",
         ExpressionAttributeValues: {
-          ":githubData": githubData,
+          ":stackOverflowData": stackOverflowData,
         },
       });
 
       await delay(5000);
       console.log(
-        `Successfully updated GitHub data for database_id: ${databaseId}`
+        `Successfully updated stackOverflowData data for database_id: ${databaseId}`
       );
     }
 
-    return sendResponse(200, "GitHub metrics updated successfully", true);
+    return sendResponse(
+      200,
+      "stackOverflowData metrics updated successfully",
+      true
+    );
   } catch (error) {
-    console.error("Error updating GitHub metrics:", error);
-    return sendResponse(500, "Failed to update GitHub metrics", error.message);
+    console.error("Error updating stackOverflowData metrics:", error);
+    return sendResponse(
+      500,
+      "Failed to update stackOverflowData metrics",
+      error.message
+    );
   }
 };

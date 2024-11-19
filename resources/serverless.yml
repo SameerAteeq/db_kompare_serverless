@@ -8,6 +8,7 @@ provider:
   runtime: nodejs20.x
   region: eu-west-1
   stage: ${opt:stage, 'dev'}
+  profile: dbkompare
 
 resources:
   Resources:
