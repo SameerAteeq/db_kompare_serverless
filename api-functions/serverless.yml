@@ -75,21 +75,40 @@ functions:
       - http:
           path: /add-metrices
           method: post
+  getMetrices:
+    handler: functions/metrices/getMetrices.handler
+    events:
+      - http:
+          path: /get-metrices
+          method: post
+          cors: true
   # addBasicMetrices:
   #   handler: functions/metrices/addBasicMetrices.handler
   #   events:
   #     - schedule:
   #         rate: rate(5 minutes)
-  getGithubMetrices:
-    handler: functions/metrices/getGithubMetrices.handler
-    timeout: 120
-    events:
-      - http:
-          path: /get-github-metrices
-          method: get
+  # getGithubMetrices:
+  #   handler: functions/metrices/getGithubMetrices.handler
+  #   timeout: 300
+  #   events:
+  #     - schedule:
+  #         rate: cron(0 */3 * * ? *) # Runs every 3 hours
 
   # getStackoverflowMetrices:
   #   handler: functions/metrices/getStackoverflowMetrices.handler
   #   events:
   #     - schedule:
-  #         rate: cron(2/5 * * * ? *)
+  #         rate: cron(0 */3 * * ? *)
+
+  # getGoogleMetrices:
+  #   handler: functions/metrices/getGoogleMetrices.handler
+  #   timeout: 300
+  #   events:
+  #     - schedule:
+  #         rate: cron(0 */3 * * ? *)
+  # getBingMetrices:
+  #   handler: functions/metrices/getBingMetrices.handler
+  #   timeout: 300
+  #   events:
+  #     - schedule:
+  #         rate: cron(0 */3 * * ? *)

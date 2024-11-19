@@ -1,29 +1,19 @@
 const {
   getYesterdayDate,
-  getTwoDaysAgoDate,
   sendResponse,
   delay,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
-  getItem,
   getItemByQuery,
-  createItemInDynamoDB,
   fetchAllItemByDynamodbIndex,
-  batchWriteItems,
   updateItemInDynamoDB,
 } = require("../../helpers/dynamodb");
-const { getGitHubMetrics } = require("../../services/githubService");
 const { getGoogleMetrics } = require("../../services/googleService");
-const { getBingMetrics } = require("../../services/bingService");
-const {
-  getStackOverflowMetrics,
-} = require("../../services/stackOverflowService");
-const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    console.log("Fetching all active databases for stackOverflowData...");
+    console.log("Fetching all active databases for Google data...");
 
     // Fetch all active databases
     const databases = await fetchAllItemByDynamodbIndex({
@@ -47,22 +37,21 @@ module.exports.handler = async (event) => {
 
     // Process each database
     for (const db of databases) {
-      const { id: databaseId, stack_overflow_tag, name } = db;
+      const { id: databaseId, queries, name } = db;
 
-      if (!stack_overflow_tag) {
+      if (!queries || queries.length === 0) {
         console.log(
-          `No stack_overflow_tag found for database_id: ${databaseId} name :${name}`
+          `Skipped database_id: ${databaseId}, name: ${name} - No queries found.`
         );
         continue; // Skip databases without queries
       }
 
-      // Fetch GitHub metrics for the first query
       console.log(
-        `Fetching stackoverflow metrics for database_id: ${databaseId} name :${name} with query: ${stack_overflow_tag}`
+        `Fetching Google metrics for database_id: ${databaseId}, name: ${name}`
       );
-      const stackOverflowData = await getStackOverflowMetrics(
-        stack_overflow_tag
-      );
+
+      // Fetch Google metrics
+      const googleData = await getGoogleMetrics(queries);
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -80,16 +69,16 @@ module.exports.handler = async (event) => {
 
       if (!metricsData.Items || metricsData.Items.length === 0) {
         console.log(
-          `No metrics found for database_id: ${databaseId} on date: ${getYesterdayDate} name :${name}`
+          `Skipped database_id: ${databaseId}, name: ${name} - No metrics found for date: ${getYesterdayDate}.`
         );
         continue; // Skip if no metrics exist
       }
 
       const metric = metricsData.Items[0]; // Assuming one metric entry per database per day
 
-      // Update the metric with GitHub data
+      // Update the metric with Google data
       console.log(
-        `Updating metrics for database_id: ${databaseId} name :${name}`
+        `Updating metrics for database_id: ${databaseId}, name: ${name}`
       );
 
       await updateItemInDynamoDB({
@@ -98,28 +87,25 @@ module.exports.handler = async (event) => {
           database_id: metric.database_id,
           date: metric.date,
         },
-        UpdateExpression: "SET stackOverflowData = :stackOverflowData",
+        UpdateExpression: "SET googleData = :googleData",
         ExpressionAttributeValues: {
-          ":stackOverflowData": stackOverflowData,
+          ":googleData": googleData,
         },
       });
 
       console.log(
-        `Successfully updated stackOverflowData data for database_id: ${databaseId} name :${name}`
+        `Successfully updated Google data for database_id: ${databaseId}, name: ${name}`
       );
+
+      // Add a delay between processing each database to avoid API rate limits
+      await delay(5000);
     }
 
-    return sendResponse(
-      200,
-      "stackOverflowData metrics updated successfully",
-      true
-    );
+    return sendResponse(200, "Google data updated successfully", true);
   } catch (error) {
-    console.error("Error updating stackOverflowData metrics:", error);
-    return sendResponse(
-      500,
-      "Failed to update stackOverflowData metrics",
-      error.message
-    );
+    console.error("Error updating Google data metrics:", error);
+    return sendResponse(500, "Failed to update Google data metrics", {
+      error: error.message,
+    });
   }
 };
