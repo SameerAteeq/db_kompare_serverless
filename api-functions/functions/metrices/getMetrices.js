@@ -21,40 +21,40 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    // let startDate = "";
-    // let endDate = "";
-    // // Parse the request body
-    // if (event.body) {
-    //   const parsedBody = JSON.parse(event.body);
-    //   startDate = parsedBody.startDate;
-    //   endDate = parsedBody.endDate;
-    // } else if (event.queryStringParameters) {
-    //   startDate = event.queryStringParameters.startDate;
-    //   endDate = event.queryStringParameters.endDate;
-    // }
+    let startDate = "";
+    let endDate = "";
+    // Parse the request body
+    if (event.body) {
+      const parsedBody = JSON.parse(event.body);
+      startDate = parsedBody.startDate;
+      endDate = parsedBody.endDate;
+    } else if (event.queryStringParameters) {
+      startDate = event.queryStringParameters.startDate;
+      endDate = event.queryStringParameters.endDate;
+    }
 
-    // // Validate date range if provided
-    // if ((startDate && !endDate) || (!startDate && endDate)) {
-    //   return sendResponse(
-    //     400,
-    //     "Both startDate and endDate must be provided for date range filtering."
-    //   );
-    // }
+    // Validate date range if provided
+    if ((startDate && !endDate) || (!startDate && endDate)) {
+      return sendResponse(
+        400,
+        "Both startDate and endDate must be provided for date range filtering."
+      );
+    }
 
-    // // If dates are provided, ensure they are in the correct format (YYYY-MM-DD)
-    // if (startDate && endDate) {
-    //   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    //   if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-    //     return sendResponse(
-    //       400,
-    //       "startDate and endDate must be in YYYY-MM-DD format."
-    //     );
-    //   }
+    // If dates are provided, ensure they are in the correct format (YYYY-MM-DD)
+    if (startDate && endDate) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return sendResponse(
+          400,
+          "startDate and endDate must be in YYYY-MM-DD format."
+        );
+      }
 
-    //   if (startDate > endDate) {
-    //     return sendResponse(400, "startDate cannot be later than endDate.");
-    //   }
-    // }
+      if (startDate > endDate) {
+        return sendResponse(400, "startDate cannot be later than endDate.");
+      }
+    }
 
     // Define the base query parameters
     let queryParams = {
@@ -70,13 +70,13 @@ module.exports.handler = async (event) => {
     };
 
     // If date range is provided, add it to the KeyConditionExpression
-    // if (startDate && endDate) {
-    //   queryParams.KeyConditionExpression +=
-    //     " AND #date BETWEEN :startDate AND :endDate";
-    //   queryParams.ExpressionAttributeNames["#date"] = "date";
-    //   queryParams.ExpressionAttributeValues[":startDate"] = startDate;
-    //   queryParams.ExpressionAttributeValues[":endDate"] = endDate;
-    // }
+    if (startDate && endDate) {
+      queryParams.KeyConditionExpression +=
+        " AND #date BETWEEN :startDate AND :endDate";
+      queryParams.ExpressionAttributeNames["#date"] = "date";
+      queryParams.ExpressionAttributeValues[":startDate"] = startDate;
+      queryParams.ExpressionAttributeValues[":endDate"] = endDate;
+    }
 
     // Fetch items from DynamoDB
     const items = await fetchAllItemByDynamodbIndex(queryParams);

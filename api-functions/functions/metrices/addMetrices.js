@@ -1,12 +1,22 @@
 const {
   getYesterdayDate,
   getTwoDaysAgoDate,
+  sendResponse,
+  delay,
+  calculateGitHubPopularity,
+  calculateOverallPopularity,
+  calculateBingPopularity,
+  calculateStackOverflowPopularity,
+  calculateGooglePopularity,
 } = require("../../helpers/helpers");
-const { TABLE_NAME } = require("../../helpers/constants");
+const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
   getItem,
   getItemByQuery,
   createItemInDynamoDB,
+  fetchAllItemByDynamodbIndex,
+  batchWriteItems,
+  updateItemInDynamoDB,
 } = require("../../helpers/dynamodb");
 const { getGitHubMetrics } = require("../../services/githubService");
 const { getGoogleMetrics } = require("../../services/googleService");
@@ -18,153 +28,125 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    const { databaseId } = JSON.parse(event.body);
-    console.log("Filtered and validated params:", JSON.stringify(databaseId));
+    console.log("Fetching all active databases...");
 
-    // Validate databaseId
-    if (!databaseId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "databaseId is required" }),
-      };
-    }
-
-    // Fetch the database document
-    const databaseData = await getItem(TABLE_NAME.DATABASES, {
-      id: databaseId,
-    });
-    const databaseDoc = databaseData.Item;
-    console.log("Database:", JSON.stringify(databaseDoc));
-
-    if (!databaseDoc) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Database document not found" }),
-      };
-    }
-
-    const { queries, stack_overflow_tag } = databaseDoc;
-    if (!queries || !stack_overflow_tag) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Quereis not found" }),
-      };
-    }
-
-    // Check metrics for yesterday
-    const getMetricsData = await getItemByQuery({
-      table: TABLE_NAME.METRICES,
-      KeyConditionExpression: "#database_id = :database_id and #date = :date",
-      ExpressionAttributeNames: {
-        "#database_id": "database_id",
-        "#date": "date",
-      },
+    // Fetch all active databases
+    const databases = await fetchAllItemByDynamodbIndex({
+      TableName: TABLE_NAME.DATABASES,
+      IndexName: "byStatus",
+      KeyConditionExpression: "#status = :statusVal",
       ExpressionAttributeValues: {
-        ":database_id": databaseId,
-        ":date": getYesterdayDate,
+        ":statusVal": DATABASE_STATUS.ACTIVE, // Active databases
+      },
+      ExpressionAttributeNames: {
+        "#status": "status",
       },
     });
 
-    const isMetricsExist = getMetricsData.Items.length > 0;
-    if (isMetricsExist) {
-      return {
-        statusCode: 409,
-        body: JSON.stringify({ error: "Metrics already exist for today" }),
-      };
+    if (!databases || databases.length === 0) {
+      console.log("No active databases found.");
+      return sendResponse(404, "No active databases found", null);
     }
 
-    // Check metrics for two days ago
-    const twoDaysAgoMetrics = await getItemByQuery({
-      table: TABLE_NAME.METRICES,
-      KeyConditionExpression: "#database_id = :database_id and #date = :date",
-      ExpressionAttributeNames: {
-        "#database_id": "database_id",
-        "#date": "date",
-      },
-      ExpressionAttributeValues: {
-        ":database_id": databaseId,
-        ":date": getTwoDaysAgoDate,
-      },
-    });
+    console.log(`Found ${databases.length} active databases.`);
 
-    console.log("Two Days Ago Metrics:", JSON.stringify(twoDaysAgoMetrics));
+    // Process each database
+    for (const db of databases) {
+      const { id: databaseId, queries } = db;
 
-    // Fetch metrics data
-    const metricsData = await fetchMetrics(databaseDoc, twoDaysAgoMetrics);
+      if (!queries || queries.length === 0) {
+        console.log(`No queries found for database_id: ${databaseId}`);
+        continue; // Skip databases without queries
+      }
 
-    // Prepare new metrics
-    const newMetrics = {
-      TableName: TABLE_NAME.METRICES,
-      Item: {
-        id: uuidv4(),
-        database_id: databaseId,
-        date: getYesterdayDate,
-        ...metricsData, // Spread fetched metrics, including `is_bingData_copied`
-      },
-    };
+      // Fetch GitHub metrics for the first query
+      console.log(
+        `Fetching GitHub metrics for database_id: ${databaseId} with query: ${queries[0]}`
+      );
+      // const githubData = await getGitHubMetrics(queries[0]);
 
-    // Insert new metrics
-    await createItemInDynamoDB(
-      newMetrics.Item,
-      newMetrics.TableName,
-      { "#id": "id" },
-      "attribute_not_exists(#id)"
-    );
+      // Check if metrics exist for this database and date
+      const metricsData = await getItemByQuery({
+        table: TABLE_NAME.METRICES,
+        KeyConditionExpression: "#database_id = :database_id and #date = :date",
+        ExpressionAttributeNames: {
+          "#database_id": "database_id",
+          "#date": "date",
+        },
+        ExpressionAttributeValues: {
+          ":database_id": databaseId,
+          ":date": getTwoDaysAgoDate,
+        },
+      });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: "Metrics added successfully",
-        newMetrics: newMetrics.Item,
-      }),
-    };
+      if (!metricsData.Items || metricsData.Items.length === 0) {
+        console.log(
+          `No metrics found for database_id: ${databaseId} on date: ${getYesterdayDate}`
+        );
+        continue; // Skip if no metrics exist
+      }
+
+      const metric = metricsData.Items[0];
+      // const googleData = await getGoogleMetrics(queries);
+      // Update the metric with GitHub data
+      console.log(`Updating metrics for database_id: ${databaseId}`);
+      await updateItemInDynamoDB({
+        table: TABLE_NAME.METRICES,
+        Key: {
+          database_id: metric.database_id,
+          date: getTwoDaysAgoDate,
+        },
+        UpdateExpression: "SET popularity.githubScore =:githubScore",
+        // UpdateExpression:
+        //   "SET popularity.stackoverflowScore = :stackoverflowScore, popularity.githubScore = :githubScore, popularity.totalScore = :totalScore, popularity.googleScore = :googleScore, popularity.bingScore = :bingScore, ",
+
+        ExpressionAttributeValues: {
+          // ":githubData": githubData,
+          ":githubScore": calculateGitHubPopularity(metric.githubData),
+          // ":googleScore": calculateGooglePopularity(metric.googleData),
+          // ":stackoverflowScore": calculateStackOverflowPopularity(
+          //   metric.stackOverflowData
+          // ),
+          // ":bingScore": calculateBingPopularity(metric.bingData),
+          // ":totalScore": calculateOverallPopularity(metric.popularity),
+        },
+      });
+      await updateItemInDynamoDB({
+        table: TABLE_NAME.METRICES,
+        Key: {
+          database_id: metric.database_id,
+          date: getTwoDaysAgoDate,
+        },
+        UpdateExpression:
+          "SET popularity = if_not_exists(popularity, :emptyMap), popularity.githubScore = :githubScore",
+        ExpressionAttributeValues: {
+          ":emptyMap": {}, // Initialize `popularity` as an empty map if it does not exist
+          ":githubScore": calculateGitHubPopularity(metric.githubData),
+        },
+      });
+
+      // await updateItemInDynamoDB({
+      //   table: TABLE_NAME.METRICES,
+      //   Key: {
+      //     database_id: databaseId,
+      //     date: getYesterdayDate,
+      //   },
+      //   UpdateExpression:
+      //     "SET githubData = :githubData , popularity.githubScore = :githubScore",
+      //   ExpressionAttributeValues: {
+      //     ":githubData": githubData,
+      //     ":githubScore": calculateGitHubPopularity(githubData),
+      //   },
+      // });
+
+      console.log(
+        `Successfully updated GitHub data for database_id: ${databaseId}`
+      );
+    }
+
+    return sendResponse(200, "GitHub metrics updated successfully", true);
   } catch (error) {
-    console.error("Error adding daily count:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Failed to add daily count" }),
-    };
+    console.error("Error updating GitHub metrics:", error);
+    return sendResponse(500, "Failed to update GitHub metrics", error.message);
   }
 };
-
-async function fetchMetrics(databaseDoc, twoDaysAgoMetrics) {
-  try {
-    const { queries, stack_overflow_tag } = databaseDoc;
-    const {
-      isBingDataCopied: previousBingDataCopied,
-      bingData: existingBingData,
-    } = twoDaysAgoMetrics?.Items[0];
-
-    let bingData;
-    let isBingDataCopied;
-
-    if (previousBingDataCopied) {
-      // Fetch new Bing data since previous data was copied
-      bingData = await getBingMetrics(queries);
-      // bingData = data;
-      isBingDataCopied = false; // Data is fresh, not reused
-    } else {
-      // Reuse Bing data from two days ago
-      bingData = existingBingData || [];
-      isBingDataCopied = true; // Data is reused
-    }
-
-    // Fetch core metrics in parallel
-    const [githubData, stackOverflowData, googleData] = await Promise.all([
-      getGitHubMetrics(queries[0]),
-      getStackOverflowMetrics(stack_overflow_tag),
-      getGoogleMetrics(queries),
-    ]);
-
-    return {
-      githubData,
-      stackOverflowData,
-      googleData,
-      bingData,
-      isBingDataCopied,
-    };
-  } catch (error) {
-    console.error("Error fetching metrics:", error);
-    throw new Error("Failed to fetch metrics");
-  }
-}

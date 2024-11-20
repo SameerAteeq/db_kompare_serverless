@@ -1,4 +1,5 @@
 const moment = require("moment");
+const { RESOURCE_TYPE } = require("./constants");
 
 const getTableName = (name) => {
   return `${name}`;
@@ -91,6 +92,83 @@ const getYesterdayDate = moment().subtract(1, "days").format("YYYY-MM-DD");
 // Get the date for two days ago and format it
 const getTwoDaysAgoDate = moment().subtract(2, "days").format("YYYY-MM-DD");
 
+const calculateGitHubPopularity = ({ totalIssues, totalStars, totalRepos }) => {
+  return (totalStars * 0.1 + totalRepos * 0.6 - totalIssues * 0.3) * 100000;
+};
+
+const calculateStackOverflowPopularity = ({
+  totalQuestions,
+  totalQuestionsAllTime,
+  totalViewCount,
+}) => {
+  return (
+    (totalQuestions * 0.7 + totalViewCount * 0.3) * 100000 +
+    totalQuestionsAllTime
+  );
+};
+
+const calculateGooglePopularity = (data) => {
+  // Calculate the total sum of `totalResults`
+  const totalResultsSum = data
+    .filter((value) => value.totalResults)
+    .reduce((sum, value) => sum + value.totalResults, 0);
+
+  // Aggregate weighted values for all queries
+  const weightedSum = data.reduce((sum, value) => {
+    const totalResultsWithoutDate = value.totalResultsWithoutDate || 0;
+    const totalResultsWithDate = value.totalResultsWithDate || 0;
+
+    return sum + totalResultsWithoutDate * 0.002 + totalResultsWithDate * 0.448;
+  }, 0);
+
+  // Apply the final formula
+  return weightedSum - totalResultsSum * 0.5;
+};
+
+const calculateBingPopularity = (data) => {
+  // Extract `totalEstimatedMatches` for the first query
+  const firstQueryMatches = data[0].totalEstimatedMatches || 0;
+
+  // Sum up `totalEstimatedMatches` for all other queries
+  const totalQueriesSum = data.slice(1).reduce((sum, item) => {
+    return sum + (item.totalEstimatedMatches || 0);
+  }, 0);
+
+  // Apply the formula
+  return firstQueryMatches * 0.5 - totalQueriesSum * 0.5;
+};
+
+const calculateOverallPopularity = ({
+  googleScore,
+  githubScore,
+  bingScore,
+  stackoverflowScore,
+}) => {
+  return (
+    googleScore * 0.2 +
+    bingScore * 0.1 +
+    githubScore * 0.4 +
+    stackoverflowScore * 0.3
+  );
+};
+
+const getPopularityByFormula = (resourceType, data) => {
+  switch (resourceType) {
+    case RESOURCE_TYPE.GITHUB:
+      return calculateGitHubPopularity(data);
+    case RESOURCE_TYPE.STACKOVERFLOW:
+      return calculateStackOverflowPopularity(data);
+    case RESOURCE_TYPE.GOOGLE:
+      return calculateGooglePopularity(data);
+    case RESOURCE_TYPE.BING:
+      return calculateBingPopularity(data);
+    case RESOURCE_TYPE.ALL:
+      return calculateOverallPopularity(data);
+    default:
+      throw new Error("Invalid resource type");
+  }
+};
+
 module.exports = {
   getTableName,
   sendResponse,
@@ -100,6 +178,12 @@ module.exports = {
   generateMonthlyDateRanges,
   generateDailyDateRanges,
   delay,
+  getPopularityByFormula,
+  calculateGitHubPopularity,
+  calculateStackOverflowPopularity,
+  calculateGooglePopularity,
+  calculateBingPopularity,
+  calculateOverallPopularity,
   getYesterdayDate,
   getTwoDaysAgoDate,
 };

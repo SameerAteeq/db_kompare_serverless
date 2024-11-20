@@ -3,6 +3,7 @@ const {
   getTwoDaysAgoDate,
   sendResponse,
   delay,
+  calculateStackOverflowPopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
@@ -95,12 +96,15 @@ module.exports.handler = async (event) => {
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
-          database_id: metric.database_id,
-          date: metric.date,
+          database_id: databaseId,
+          date: getYesterdayDate,
         },
-        UpdateExpression: "SET stackOverflowData = :stackOverflowData",
+        UpdateExpression:
+          "SET stackOverflowData = :stackOverflowData, popularity.stackoverflowScore = :stackoverflowScore",
         ExpressionAttributeValues: {
           ":stackOverflowData": stackOverflowData,
+          ":stackoverflowScore":
+            calculateStackOverflowPopularity(stackOverflowData),
         },
       });
 

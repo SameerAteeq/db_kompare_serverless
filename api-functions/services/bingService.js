@@ -21,21 +21,8 @@ async function getBingMetrics(queries) {
       const totalEstimatedMatches =
         response.data.webPages.totalEstimatedMatches;
 
-      // // Find the corresponding two days ago data
-      // const twoDaysAgoMatch = getTwoDaysAgoData?.bingData?.find(
-      //   (data) => data.query === query
-      // );
-
-      // const twoDaysAgoMatches = twoDaysAgoMatch
-      //   ? twoDaysAgoMatch.totalEstimatedMatches
-      //   : 0;
-
-      // // Subtract two days ago's matches from today's matches
-      // const difference = totalEstimatedMatches - twoDaysAgoMatches;
-
       results.push({
         query,
-        // totalResultWithSort: difference,
         totalEstimatedMatches,
       });
       await delay(3000);

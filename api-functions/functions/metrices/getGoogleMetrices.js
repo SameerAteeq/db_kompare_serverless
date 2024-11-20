@@ -2,6 +2,7 @@ const {
   getYesterdayDate,
   sendResponse,
   delay,
+  calculateGooglePopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
@@ -53,43 +54,17 @@ module.exports.handler = async (event) => {
       // Fetch Google metrics
       const googleData = await getGoogleMetrics(queries);
 
-      // Check if metrics exist for this database and date
-      const metricsData = await getItemByQuery({
-        table: TABLE_NAME.METRICES,
-        KeyConditionExpression: "#database_id = :database_id and #date = :date",
-        ExpressionAttributeNames: {
-          "#database_id": "database_id",
-          "#date": "date",
-        },
-        ExpressionAttributeValues: {
-          ":database_id": databaseId,
-          ":date": getYesterdayDate,
-        },
-      });
-
-      if (!metricsData.Items || metricsData.Items.length === 0) {
-        console.log(
-          `Skipped database_id: ${databaseId}, name: ${name} - No metrics found for date: ${getYesterdayDate}.`
-        );
-        continue; // Skip if no metrics exist
-      }
-
-      const metric = metricsData.Items[0]; // Assuming one metric entry per database per day
-
-      // Update the metric with Google data
-      console.log(
-        `Updating metrics for database_id: ${databaseId}, name: ${name}`
-      );
-
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
-          database_id: metric.database_id,
-          date: metric.date,
+          database_id: databaseId,
+          date: getYesterdayDate,
         },
-        UpdateExpression: "SET googleData = :googleData",
+        UpdateExpression:
+          "SET googleData = :googleData, popularity.googleScore = :googleScore",
         ExpressionAttributeValues: {
           ":googleData": googleData,
+          ":googleScore": calculateGooglePopularity(googleData),
         },
       });
 

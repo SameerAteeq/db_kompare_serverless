@@ -113,6 +113,7 @@ async function getGitHubMetrics(query) {
 
   const metrics = await fetchMetricsByDateRange(query, date, processedRepoIds);
   console.log("metrics in githunb", metrics);
+
   if (metrics) {
     cumulativeStars += metrics.totalStars;
     cumulativeRepos += metrics.totalRepos;

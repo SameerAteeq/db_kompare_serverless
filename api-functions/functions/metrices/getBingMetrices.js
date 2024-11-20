@@ -3,6 +3,7 @@ const {
   getTwoDaysAgoDate,
   sendResponse,
   delay,
+  calculateBingPopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
@@ -68,54 +69,32 @@ module.exports.handler = async (event) => {
       console.log("twoDaysAgoMetrics", twoDaysAgoMetrics);
       let bingData = [];
       let isBingDataCopied;
-      bingData = await getBingMetrics(queries);
-      isBingDataCopied = false;
-      //   if (!twoDaysAgoMetrics.Items) {
-      //     bingData = await getBingMetrics(queries);
-      //     isBingDataCopied = false; // Indicates data is fresh
-      //   } else if (twoDaysAgoMetrics.Items[0]?.isBingDataCopied) {
-      //     bingData = await getBingMetrics(queries);
-      //     isBingDataCopied = false; // Indicates data is fresh
-      //   } else {
-      //     bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
-      //     isBingDataCopied = true; // Indicates data is reused
-      //   }
-      //   if (
-      //     !twoDaysAgoMetrics.Items ||
-      //     twoDaysAgoMetrics.Items.length === 0 || // No metrics exist for two days ago
-      //     twoDaysAgoMetrics.Items[0]?.isBingDataCopied // Previous data was copied
-      //   ) {
-      //     // Fetch new Bing data if previous data was copied
-      //     bingData = await getBingMetrics(queries);
-      //     isBingDataCopied = false; // Indicates data is fresh
-      //   } else {
-      //     // Reuse existing Bing data if available
-      //     bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
-      //     isBingDataCopied = true; // Indicates data is reused
-      //   }
+      // bingData = await getBingMetrics(queries);
+      // isBingDataCopied = false;
 
-      // Check if metrics exist for this database and date
-      const metricsData = await getItemByQuery({
-        table: TABLE_NAME.METRICES,
-        KeyConditionExpression: "#database_id = :database_id and #date = :date",
-        ExpressionAttributeNames: {
-          "#database_id": "database_id",
-          "#date": "date",
-        },
-        ExpressionAttributeValues: {
-          ":database_id": databaseId,
-          ":date": getYesterdayDate,
-        },
-      });
-
-      if (!metricsData.Items || metricsData.Items.length === 0) {
-        console.log(
-          `Skipped database_id: ${databaseId}, name: ${name} - No metrics found for date: ${getYesterdayDate}.`
-        );
-        continue; // Skip if no metrics exist
+      if (!twoDaysAgoMetrics.Items) {
+        bingData = [];
+        isBingDataCopied = false; // Indicates data is fresh
+      } else if (twoDaysAgoMetrics.Items[0]?.isBingDataCopied) {
+        bingData = [];
+        isBingDataCopied = false; // Indicates data is fresh
+      } else {
+        bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
+        isBingDataCopied = true; // Indicates data is reused
       }
-
-      const metric = metricsData.Items[0]; // Assuming one metric entry per database per day
+      // if (
+      //   !twoDaysAgoMetrics.Items ||
+      //   twoDaysAgoMetrics.Items.length === 0 || // No metrics exist for two days ago
+      //   twoDaysAgoMetrics.Items[0]?.isBingDataCopied // Previous data was copied
+      // ) {
+      //   // Fetch new Bing data if previous data was copied
+      //   bingData = await getBingMetrics(queries);
+      //   isBingDataCopied = false; // Indicates data is fresh
+      // } else {
+      //   // Reuse existing Bing data if available
+      //   bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
+      //   isBingDataCopied = true; // Indicates data is reused
+      // }
 
       // Update the metric with Bing data
       console.log(
@@ -124,14 +103,15 @@ module.exports.handler = async (event) => {
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
-          database_id: metric.database_id,
-          date: metric.date,
+          database_id: databaseId,
+          date: getYesterdayDate,
         },
         UpdateExpression:
-          "SET bingData = :bingData, isBingDataCopied = :isCopied",
+          "SET bingData = :bingData, isBingDataCopied = :isCopied ,popularity.bingScore = :bingScore",
         ExpressionAttributeValues: {
           ":bingData": bingData,
           ":isCopied": isBingDataCopied,
+          ":bingScore": calculateBingPopularity(bingData),
         },
       });
 

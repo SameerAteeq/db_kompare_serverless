@@ -3,6 +3,8 @@ const {
   getTwoDaysAgoDate,
   sendResponse,
   delay,
+  calculateGitHubPopularity,
+  calculateOverallPopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
@@ -58,7 +60,7 @@ module.exports.handler = async (event) => {
       console.log(
         `Fetching GitHub metrics for database_id: ${databaseId} with query: ${queries[0]}`
       );
-      const githubData = await getGitHubMetrics(queries[0]);
+      // const githubData = await getGitHubMetrics(queries[0]);
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -81,7 +83,7 @@ module.exports.handler = async (event) => {
         continue; // Skip if no metrics exist
       }
 
-      const metric = metricsData.Items[0]; // Assuming one metric entry per database per day
+      const metric = metricsData.Items[0];
 
       // Update the metric with GitHub data
       console.log(`Updating metrics for database_id: ${databaseId}`);
@@ -89,13 +91,31 @@ module.exports.handler = async (event) => {
         table: TABLE_NAME.METRICES,
         Key: {
           database_id: metric.database_id,
-          date: metric.date,
+          date: getYesterdayDate,
         },
-        UpdateExpression: "SET githubData = :githubData",
+        UpdateExpression: "SET includeMe = :includeMe",
+        // UpdateExpression:
+        //   "SET githubData = :githubData ,popularity.githubScore = :githubScore",
         ExpressionAttributeValues: {
-          ":githubData": githubData,
+          // ":githubData": githubData,
+          // ":githubScore": calculateGitHubPopularity(metric.githubData),
+          // ":totalScore": calculateOverallPopularity(metric.popularity),
+          ":includeMe": "YES",
         },
       });
+      // await updateItemInDynamoDB({
+      //   table: TABLE_NAME.METRICES,
+      //   Key: {
+      //     database_id: databaseId,
+      //     date: getYesterdayDate,
+      //   },
+      //   UpdateExpression:
+      //     "SET githubData = :githubData , popularity.githubScore = :githubScore",
+      //   ExpressionAttributeValues: {
+      //     ":githubData": githubData,
+      //     ":githubScore": calculateGitHubPopularity(githubData),
+      //   },
+      // });
 
       console.log(
         `Successfully updated GitHub data for database_id: ${databaseId}`
