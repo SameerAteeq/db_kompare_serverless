@@ -1,23 +1,9 @@
-const {
-  getYesterdayDate,
-  getTwoDaysAgoDate,
-  sendResponse,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
+const { TABLE_NAME } = require("../../helpers/constants");
 const {
   getItem,
-  getItemByQuery,
-  createItemInDynamoDB,
   fetchAllItemByDynamodbIndex,
-  batchWriteItems,
 } = require("../../helpers/dynamodb");
-const { getGitHubMetrics } = require("../../services/githubService");
-const { getGoogleMetrics } = require("../../services/googleService");
-const { getBingMetrics } = require("../../services/bingService");
-const {
-  getStackOverflowMetrics,
-} = require("../../services/stackOverflowService");
-const { v4: uuidv4 } = require("uuid");
+const { sendResponse } = require("../../helpers/helpers");
 
 module.exports.handler = async (event) => {
   try {
@@ -80,12 +66,66 @@ module.exports.handler = async (event) => {
 
     // Fetch items from DynamoDB
     const items = await fetchAllItemByDynamodbIndex(queryParams);
+    const transformedData = await transformData(items);
 
-    return sendResponse(200, "Fetch metrices successfully", items);
+    return sendResponse(200, "Fetch metrices successfully", transformedData);
   } catch (error) {
     console.error("Error fetching metrices:", error);
     return sendResponse(500, "Failed to fetch metrices", {
       error: error.message,
     });
   }
+};
+
+// Get database name
+const getDatabaseNameById = async (databaseId) => {
+  const key = {
+    id: databaseId,
+  };
+  try {
+    const result = await getItem(TABLE_NAME.DATABASES, key);
+    if (result.Item) {
+      return result.Item.name;
+    }
+    return "Unknown"; // Fallback if the database name is not found
+  } catch (error) {
+    console.error(`Error fetching database name for ID ${databaseId}:`, error);
+    throw error;
+  }
+};
+
+const transformData = async (items) => {
+  // Group items by `databaseId`
+  const groupedData = items.reduce((acc, item) => {
+    const { database_id: databaseId, date, popularity } = item;
+
+    // Ensure the database entry exists in the accumulator
+    if (!acc[databaseId]) {
+      acc[databaseId] = {
+        databaseId,
+        databaseName: "Fetching...", // Placeholder for the database name
+        metrics: [],
+      };
+    }
+
+    // Add metrics for the current date
+    acc[databaseId].metrics.push({
+      date,
+      popularity,
+    });
+
+    return acc;
+  }, {});
+
+  // Fetch database names for each unique databaseId
+  const databaseIds = Object.keys(groupedData);
+  await Promise.all(
+    databaseIds.map(async (databaseId) => {
+      const databaseName = await getDatabaseNameById(databaseId);
+      groupedData[databaseId].databaseName = databaseName;
+    })
+  );
+
+  // Convert the grouped object to an array
+  return Object.values(groupedData);
 };

@@ -31,11 +31,9 @@ module.exports.handler = async (event) => {
     });
 
     if (!databases || databases.length === 0) {
-      console.log("No active databases found.");
-      return sendResponse(404, "No active databases found", null);
+      console.log("No active databases found for BING");
+      return sendResponse(404, "No active databases found for BING", null);
     }
-
-    console.log(`Found ${databases.length} active databases.`);
 
     // Process each database
     for (const db of databases) {
@@ -49,11 +47,28 @@ module.exports.handler = async (event) => {
         continue;
       }
 
-      console.log(
-        `Processing database_id: ${databaseId}, name: ${name} with queries: ${queries}`
-      );
+      // Check if metrics exist for this database and date
+      const metricsData = await getItemByQuery({
+        table: TABLE_NAME.METRICES,
+        KeyConditionExpression: "#database_id = :database_id and #date = :date",
+        ExpressionAttributeNames: {
+          "#database_id": "database_id",
+          "#date": "date",
+        },
+        ExpressionAttributeValues: {
+          ":database_id": databaseId,
+          ":date": getYesterdayDate,
+        },
+      });
 
-      // Fetch metrics for two days ago
+      const metric = metricsData.Items[0];
+
+      // if BING data already exist in our database then it should skip that database
+      if (metric.bingData) {
+        continue;
+      }
+
+      // Fetch metrics for two days ago because we need to check bing copied data
       const twoDaysAgoMetrics = await getItemByQuery({
         table: TABLE_NAME.METRICES,
         KeyConditionExpression: "#database_id = :database_id and #date = :date",
@@ -66,40 +81,27 @@ module.exports.handler = async (event) => {
           ":date": getTwoDaysAgoDate,
         },
       });
-      console.log("twoDaysAgoMetrics", twoDaysAgoMetrics);
+
+      // Creating variables to store data
       let bingData = [];
       let isBingDataCopied;
-      // bingData = await getBingMetrics(queries);
-      // isBingDataCopied = false;
 
-      if (!twoDaysAgoMetrics.Items) {
-        bingData = [];
-        isBingDataCopied = false; // Indicates data is fresh
-      } else if (twoDaysAgoMetrics.Items[0]?.isBingDataCopied) {
-        bingData = [];
+      // Checking if the data is copied or fresh in our database then updating values according to that
+      if (twoDaysAgoMetrics.Items[0]?.isBingDataCopied) {
+        bingData = await getBingMetrics(queries);
         isBingDataCopied = false; // Indicates data is fresh
       } else {
         bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
         isBingDataCopied = true; // Indicates data is reused
       }
-      // if (
-      //   !twoDaysAgoMetrics.Items ||
-      //   twoDaysAgoMetrics.Items.length === 0 || // No metrics exist for two days ago
-      //   twoDaysAgoMetrics.Items[0]?.isBingDataCopied // Previous data was copied
-      // ) {
-      //   // Fetch new Bing data if previous data was copied
-      //   bingData = await getBingMetrics(queries);
-      //   isBingDataCopied = false; // Indicates data is fresh
-      // } else {
-      //   // Reuse existing Bing data if available
-      //   bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
-      //   isBingDataCopied = true; // Indicates data is reused
-      // }
 
-      // Update the metric with Bing data
-      console.log(
-        `Updating metrics for database_id: ${databaseId}, name: ${name}`
-      );
+      // Updating the popularity Object
+      const updatedPopularity = {
+        ...metric?.popularity,
+        bingScore: calculateBingPopularity(bingData),
+      };
+
+      // Updating the database to add BING data and BING score in our database
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
@@ -107,20 +109,20 @@ module.exports.handler = async (event) => {
           date: getYesterdayDate,
         },
         UpdateExpression:
-          "SET bingData = :bingData, isBingDataCopied = :isCopied ,popularity.bingScore = :bingScore",
-        ExpressionAttributeValues: {
-          ":bingData": bingData,
-          ":isCopied": isBingDataCopied,
-          ":bingScore": calculateBingPopularity(bingData),
+          "SET #popularity = :popularity, #bingData = :bingData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#bingData": "bingData",
         },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":bingData": bingData,
+        },
+        ConditionExpression:
+          "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
       });
 
-      console.log(
-        `Successfully updated Bing data for database_id: ${databaseId}, name: ${name}`
-      );
-
-      // Add a delay to avoid API rate limits
-      await delay(5000);
+      console.log(`Successfully updated Bing data for name: ${name}`);
     }
 
     return sendResponse(200, "Bing data updated successfully", true);

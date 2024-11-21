@@ -44,8 +44,6 @@ module.exports.handler = async (event) => {
       return sendResponse(404, "No active databases found", null);
     }
 
-    console.log(`Found ${databases.length} active databases.`);
-
     // Process each database
     for (const db of databases) {
       const { id: databaseId, stack_overflow_tag, name } = db;
@@ -56,14 +54,6 @@ module.exports.handler = async (event) => {
         );
         continue; // Skip databases without queries
       }
-
-      // Fetch GitHub metrics for the first query
-      console.log(
-        `Fetching stackoverflow metrics for database_id: ${databaseId} name :${name} with query: ${stack_overflow_tag}`
-      );
-      const stackOverflowData = await getStackOverflowMetrics(
-        stack_overflow_tag
-      );
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -79,20 +69,24 @@ module.exports.handler = async (event) => {
         },
       });
 
-      if (!metricsData.Items || metricsData.Items.length === 0) {
-        console.log(
-          `No metrics found for database_id: ${databaseId} on date: ${getYesterdayDate} name :${name}`
-        );
-        continue; // Skip if no metrics exist
+      const metric = metricsData.Items[0];
+
+      // if Google data already exist in our database then it should skip that database
+      if (metric.stackOverflowData) {
+        continue;
       }
-
-      const metric = metricsData.Items[0]; // Assuming one metric entry per database per day
-
-      // Update the metric with GitHub data
-      console.log(
-        `Updating metrics for database_id: ${databaseId} name :${name}`
+      // Fetch stackoverflow metrics
+      const stackOverflowData = await getStackOverflowMetrics(
+        stack_overflow_tag
       );
 
+      // Updating the popularity Object
+      const updatedPopularity = {
+        ...metric?.popularity,
+        stackoverflowScore: calculateStackOverflowPopularity(stackOverflowData),
+      };
+
+      // Updating the database to add github data and github score in our database
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
@@ -100,16 +94,21 @@ module.exports.handler = async (event) => {
           date: getYesterdayDate,
         },
         UpdateExpression:
-          "SET stackOverflowData = :stackOverflowData, popularity.stackoverflowScore = :stackoverflowScore",
-        ExpressionAttributeValues: {
-          ":stackOverflowData": stackOverflowData,
-          ":stackoverflowScore":
-            calculateStackOverflowPopularity(stackOverflowData),
+          "SET #popularity = :popularity, #stackOverflowData = :stackOverflowData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#stackOverflowData": "stackOverflowData",
         },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":stackOverflowData": stackOverflowData,
+        },
+        ConditionExpression:
+          "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
       });
 
       console.log(
-        `Successfully updated stackOverflowData data for database_id: ${databaseId} name :${name}`
+        `Successfully updated stackOverflowData data for name :${name}`
       );
     }
 

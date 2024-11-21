@@ -3,11 +3,7 @@ const {
   getTwoDaysAgoDate,
   sendResponse,
   delay,
-  calculateGitHubPopularity,
-  calculateOverallPopularity,
-  calculateBingPopularity,
   calculateStackOverflowPopularity,
-  calculateGooglePopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
@@ -28,7 +24,7 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    console.log("Fetching all active databases...");
+    console.log("Fetching all active databases for stackOverflowData...");
 
     // Fetch all active databases
     const databases = await fetchAllItemByDynamodbIndex({
@@ -48,22 +44,16 @@ module.exports.handler = async (event) => {
       return sendResponse(404, "No active databases found", null);
     }
 
-    console.log(`Found ${databases.length} active databases.`);
-
     // Process each database
     for (const db of databases) {
-      const { id: databaseId, queries } = db;
+      const { id: databaseId, stack_overflow_tag, name } = db;
 
-      if (!queries || queries.length === 0) {
-        console.log(`No queries found for database_id: ${databaseId}`);
+      if (!stack_overflow_tag) {
+        console.log(
+          `No stack_overflow_tag found for database_id: ${databaseId} name :${name}`
+        );
         continue; // Skip databases without queries
       }
-
-      // Fetch GitHub metrics for the first query
-      console.log(
-        `Fetching GitHub metrics for database_id: ${databaseId} with query: ${queries[0]}`
-      );
-      // const githubData = await getGitHubMetrics(queries[0]);
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -75,78 +65,64 @@ module.exports.handler = async (event) => {
         },
         ExpressionAttributeValues: {
           ":database_id": databaseId,
-          ":date": getTwoDaysAgoDate,
+          ":date": "2024-11-21",
         },
       });
-
-      if (!metricsData.Items || metricsData.Items.length === 0) {
-        console.log(
-          `No metrics found for database_id: ${databaseId} on date: ${getYesterdayDate}`
-        );
-        continue; // Skip if no metrics exist
-      }
 
       const metric = metricsData.Items[0];
-      // const googleData = await getGoogleMetrics(queries);
-      // Update the metric with GitHub data
-      console.log(`Updating metrics for database_id: ${databaseId}`);
-      await updateItemInDynamoDB({
-        table: TABLE_NAME.METRICES,
-        Key: {
-          database_id: metric.database_id,
-          date: getTwoDaysAgoDate,
-        },
-        UpdateExpression: "SET popularity.githubScore =:githubScore",
-        // UpdateExpression:
-        //   "SET popularity.stackoverflowScore = :stackoverflowScore, popularity.githubScore = :githubScore, popularity.totalScore = :totalScore, popularity.googleScore = :googleScore, popularity.bingScore = :bingScore, ",
 
-        ExpressionAttributeValues: {
-          // ":githubData": githubData,
-          ":githubScore": calculateGitHubPopularity(metric.githubData),
-          // ":googleScore": calculateGooglePopularity(metric.googleData),
-          // ":stackoverflowScore": calculateStackOverflowPopularity(
-          //   metric.stackOverflowData
-          // ),
-          // ":bingScore": calculateBingPopularity(metric.bingData),
-          // ":totalScore": calculateOverallPopularity(metric.popularity),
-        },
-      });
+      // if Google data already exist in our database then it should skip that database
+      if (metric.stackOverflowData) {
+        continue;
+      }
+      // Fetch stackoverflow metrics
+      const stackOverflowData = await getStackOverflowMetrics(
+        stack_overflow_tag
+      );
+
+      // Updating the popularity Object
+      const updatedPopularity = {
+        ...metric?.popularity,
+        stackoverflowScore: calculateStackOverflowPopularity(stackOverflowData),
+      };
+
+      // Updating the database to add github data and github score in our database
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
-          database_id: metric.database_id,
-          date: getTwoDaysAgoDate,
+          database_id: databaseId,
+          date: "2024-11-21",
         },
         UpdateExpression:
-          "SET popularity = if_not_exists(popularity, :emptyMap), popularity.githubScore = :githubScore",
-        ExpressionAttributeValues: {
-          ":emptyMap": {}, // Initialize `popularity` as an empty map if it does not exist
-          ":githubScore": calculateGitHubPopularity(metric.githubData),
+          "SET #popularity = :popularity, #stackOverflowData = :stackOverflowData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#stackOverflowData": "stackOverflowData",
         },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":stackOverflowData": stackOverflowData,
+        },
+        ConditionExpression:
+          "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
       });
 
-      // await updateItemInDynamoDB({
-      //   table: TABLE_NAME.METRICES,
-      //   Key: {
-      //     database_id: databaseId,
-      //     date: getYesterdayDate,
-      //   },
-      //   UpdateExpression:
-      //     "SET githubData = :githubData , popularity.githubScore = :githubScore",
-      //   ExpressionAttributeValues: {
-      //     ":githubData": githubData,
-      //     ":githubScore": calculateGitHubPopularity(githubData),
-      //   },
-      // });
-
       console.log(
-        `Successfully updated GitHub data for database_id: ${databaseId}`
+        `Successfully updated stackOverflowData data for name :${name}`
       );
     }
 
-    return sendResponse(200, "GitHub metrics updated successfully", true);
+    return sendResponse(
+      200,
+      "stackOverflowData metrics updated successfully",
+      true
+    );
   } catch (error) {
-    console.error("Error updating GitHub metrics:", error);
-    return sendResponse(500, "Failed to update GitHub metrics", error.message);
+    console.error("Error updating stackOverflowData metrics:", error);
+    return sendResponse(
+      500,
+      "Failed to update stackOverflowData metrics",
+      error.message
+    );
   }
 };

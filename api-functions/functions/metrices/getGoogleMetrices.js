@@ -30,30 +30,52 @@ module.exports.handler = async (event) => {
     });
 
     if (!databases || databases.length === 0) {
-      console.log("No active databases found.");
-      return sendResponse(404, "No active databases found", null);
+      console.log("No active databases found for google");
+      return sendResponse(404, "No active databases found for google", null);
     }
-
-    console.log(`Found ${databases.length} active databases.`);
 
     // Process each database
     for (const db of databases) {
       const { id: databaseId, queries, name } = db;
 
+      // Skip databases without queries
       if (!queries || queries.length === 0) {
         console.log(
           `Skipped database_id: ${databaseId}, name: ${name} - No queries found.`
         );
-        continue; // Skip databases without queries
+        continue;
       }
 
-      console.log(
-        `Fetching Google metrics for database_id: ${databaseId}, name: ${name}`
-      );
+      // Check if metrics exist for this database and date
+      const metricsData = await getItemByQuery({
+        table: TABLE_NAME.METRICES,
+        KeyConditionExpression: "#database_id = :database_id and #date = :date",
+        ExpressionAttributeNames: {
+          "#database_id": "database_id",
+          "#date": "date",
+        },
+        ExpressionAttributeValues: {
+          ":database_id": databaseId,
+          ":date": getYesterdayDate,
+        },
+      });
 
+      const metric = metricsData.Items[0];
+
+      // if Google data already exist in our database then it should skip that database
+      if (metric.googleData) {
+        continue;
+      }
       // Fetch Google metrics
       const googleData = await getGoogleMetrics(queries);
 
+      // Updating the popularity Object
+      const updatedPopularity = {
+        ...metric?.popularity,
+        googleScore: calculateGooglePopularity(googleData),
+      };
+
+      // Updating the database to add github data and github score in our database
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
@@ -61,19 +83,20 @@ module.exports.handler = async (event) => {
           date: getYesterdayDate,
         },
         UpdateExpression:
-          "SET googleData = :googleData, popularity.googleScore = :googleScore",
-        ExpressionAttributeValues: {
-          ":googleData": googleData,
-          ":googleScore": calculateGooglePopularity(googleData),
+          "SET #popularity = :popularity, #googleData = :googleData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#googleData": "googleData",
         },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":googleData": googleData,
+        },
+        ConditionExpression:
+          "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
       });
 
-      console.log(
-        `Successfully updated Google data for database_id: ${databaseId}, name: ${name}`
-      );
-
-      // Add a delay between processing each database to avoid API rate limits
-      await delay(5000);
+      console.log(`Successfully updated Google data for name: ${name}`);
     }
 
     return sendResponse(200, "Google data updated successfully", true);

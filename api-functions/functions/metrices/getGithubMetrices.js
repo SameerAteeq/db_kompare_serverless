@@ -1,31 +1,19 @@
 const {
   getYesterdayDate,
-  getTwoDaysAgoDate,
   sendResponse,
-  delay,
   calculateGitHubPopularity,
-  calculateOverallPopularity,
 } = require("../../helpers/helpers");
 const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
 const {
-  getItem,
   getItemByQuery,
-  createItemInDynamoDB,
   fetchAllItemByDynamodbIndex,
-  batchWriteItems,
   updateItemInDynamoDB,
 } = require("../../helpers/dynamodb");
 const { getGitHubMetrics } = require("../../services/githubService");
-const { getGoogleMetrics } = require("../../services/googleService");
-const { getBingMetrics } = require("../../services/bingService");
-const {
-  getStackOverflowMetrics,
-} = require("../../services/stackOverflowService");
-const { v4: uuidv4 } = require("uuid");
 
 module.exports.handler = async (event) => {
   try {
-    console.log("Fetching all active databases...");
+    console.log("Fetching all active databases for GITHUB...");
 
     // Fetch all active databases
     const databases = await fetchAllItemByDynamodbIndex({
@@ -41,26 +29,20 @@ module.exports.handler = async (event) => {
     });
 
     if (!databases || databases.length === 0) {
-      console.log("No active databases found.");
-      return sendResponse(404, "No active databases found", null);
+      console.log("No active databases found for GITHUB");
+      return sendResponse(404, "No active databases found for GITHUB", null);
     }
-
-    console.log(`Found ${databases.length} active databases.`);
 
     // Process each database
     for (const db of databases) {
-      const { id: databaseId, queries } = db;
+      // Destructure the useful keys
+      const { id: databaseId, queries, name } = db;
 
+      // Skip databases without queries
       if (!queries || queries.length === 0) {
         console.log(`No queries found for database_id: ${databaseId}`);
-        continue; // Skip databases without queries
+        continue;
       }
-
-      // Fetch GitHub metrics for the first query
-      console.log(
-        `Fetching GitHub metrics for database_id: ${databaseId} with query: ${queries[0]}`
-      );
-      // const githubData = await getGitHubMetrics(queries[0]);
 
       // Check if metrics exist for this database and date
       const metricsData = await getItemByQuery({
@@ -76,52 +58,47 @@ module.exports.handler = async (event) => {
         },
       });
 
-      if (!metricsData.Items || metricsData.Items.length === 0) {
-        console.log(
-          `No metrics found for database_id: ${databaseId} on date: ${getYesterdayDate()}`
-        );
-        continue; // Skip if no metrics exist
-      }
-
       const metric = metricsData.Items[0];
 
-      // Update the metric with GitHub data
-      console.log(`Updating metrics for database_id: ${databaseId}`);
+      // if Github data already exist in our database then it should skip that database
+      if (metric.githubData) {
+        continue;
+      }
+
+      // Fetching Github Data here
+      const githubData = await getGitHubMetrics(queries[0]);
+
+      // Updating the popularity Object
+      const updatedPopularity = {
+        ...metric?.popularity,
+        githubScore: calculateGitHubPopularity(githubData),
+      };
+
+      // Updating the database to add github data and github score in our database
       await updateItemInDynamoDB({
         table: TABLE_NAME.METRICES,
         Key: {
-          database_id: metric.database_id,
+          database_id: databaseId,
           date: getYesterdayDate,
         },
-        UpdateExpression: "SET includeMe = :includeMe",
-        // UpdateExpression:
-        //   "SET githubData = :githubData ,popularity.githubScore = :githubScore",
-        ExpressionAttributeValues: {
-          // ":githubData": githubData,
-          // ":githubScore": calculateGitHubPopularity(metric.githubData),
-          // ":totalScore": calculateOverallPopularity(metric.popularity),
-          ":includeMe": "YES",
+        UpdateExpression:
+          "SET #popularity = :popularity, #githubData = :githubData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#githubData": "githubData",
         },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":githubData": githubData,
+        },
+        ConditionExpression:
+          "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
       });
-      // await updateItemInDynamoDB({
-      //   table: TABLE_NAME.METRICES,
-      //   Key: {
-      //     database_id: databaseId,
-      //     date: getYesterdayDate,
-      //   },
-      //   UpdateExpression:
-      //     "SET githubData = :githubData , popularity.githubScore = :githubScore",
-      //   ExpressionAttributeValues: {
-      //     ":githubData": githubData,
-      //     ":githubScore": calculateGitHubPopularity(githubData),
-      //   },
-      // });
 
-      console.log(
-        `Successfully updated GitHub data for database_id: ${databaseId}`
-      );
+      console.log(`Successfully updated GitHub data for: ${name}`);
     }
 
+    // Finally Sending Response
     return sendResponse(200, "GitHub metrics updated successfully", true);
   } catch (error) {
     console.error("Error updating GitHub metrics:", error);
