@@ -1,8 +1,8 @@
-const { TABLE_NAME } = require("../../helpers/constants");
-const { getBatchItems } = require("../../helpers/dynamodb");
-const { sendResponse } = require("../../helpers/helpers");
+import { TABLE_NAME } from "../../helpers/constants.js";
+import { getBatchItems } from "../../helpers/dynamodb.js";
+import { sendResponse } from "../../helpers/helpers.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     const { ids } = JSON.parse(event.body);
 

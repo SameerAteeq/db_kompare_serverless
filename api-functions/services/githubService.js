@@ -142,17 +142,12 @@
 // }
 
 // module.exports = { getGitHubMetrics };
-const axios = require("axios");
-const moment = require("moment");
-const pLimit = require("p-limit");
-const dotenv = require("dotenv");
-
-dotenv.config();
+import axios from "axios";
+import moment from "moment";
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_API_URL = "https://api.github.com/search";
-const MAX_CONCURRENT_REQUESTS = 3; // Limit to 3 concurrent requests
-const REQUEST_DELAY = 2000; // Delay between batches in milliseconds
+const REQUEST_DELAY = 1000; // Delay between batches in milliseconds
 
 async function withRetry(fn, retries = 3, delayTime = 1000) {
   let attempt = 0;
@@ -276,4 +271,4 @@ async function getGitHubMetrics(query) {
   return { totalStars, totalRepos, totalIssues };
 }
 
-module.exports = { getGitHubMetrics };
+export { getGitHubMetrics };

@@ -109,10 +109,10 @@
 // module.exports = {
 //   getStackOverflowMetrics,
 // };
-const axios = require("axios");
-const moment = require("moment");
-const pLimit = require("p-limit");
-const { getDayTimestamps } = require("../helpers/helpers.js");
+
+import axios from "axios";
+import moment from "moment";
+import { getDayTimestamps } from "../helpers/helpers.js";
 
 const STACKOVERFLOW_KEY = process.env.STACK_API_KEY;
 const STACKEXCHANGE_API_URL = "https://api.stackexchange.com/2.3";
@@ -158,7 +158,7 @@ async function getStackOverflowQuestionsCount(databaseName, date) {
   let hasMore = true;
   let page = 1;
 
-  const limit = pLimit(MAX_CONCURRENT_REQUESTS);
+  // const limit = pLimit(MAX_CONCURRENT_REQUESTS);
 
   try {
     while (hasMore) {
@@ -255,6 +255,4 @@ async function getStackOverflowMetrics(databaseName) {
   }
 }
 
-module.exports = {
-  getStackOverflowMetrics,
-};
+module.exports = { getStackOverflowMetrics };

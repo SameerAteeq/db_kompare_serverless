@@ -1,18 +1,18 @@
-const {
+import {
   getYesterdayDate,
   sendResponse,
   delay,
   calculateGooglePopularity,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const {
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
   getItemByQuery,
   fetchAllItemByDynamodbIndex,
   updateItemInDynamoDB,
-} = require("../../helpers/dynamodb");
-const { getGoogleMetrics } = require("../../services/googleService");
+} from "../../helpers/dynamodb.js";
+import { getGoogleMetrics } from "../../services/googleService.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     console.log("Fetching all active databases for Google data...");
 

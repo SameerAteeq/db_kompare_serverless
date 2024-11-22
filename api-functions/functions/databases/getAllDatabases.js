@@ -1,8 +1,8 @@
-const { fetchAllItemByDynamodbIndex } = require("../../helpers/dynamodb"); // Assuming the scan function is in dynamodb helper
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const { sendResponse } = require("../../helpers/helpers");
+import { fetchAllItemByDynamodbIndex } from "../../helpers/dynamodb.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import { sendResponse } from "../../helpers/helpers.js";
 
-module.exports.handler = async (event, context, callback) => {
+export const handler = async (event, context, callback) => {
   console.log("Fetching all databases");
 
   try {

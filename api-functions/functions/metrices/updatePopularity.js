@@ -58,8 +58,7 @@ export const handler = async (event) => {
             },
             ExpressionAttributeValues: {
               ":database_id": databaseId,
-              ":date": "2024-11-18",
-              // ":date": getYesterdayDate,
+              ":date": getYesterdayDate,
             },
           });
 
@@ -86,8 +85,7 @@ export const handler = async (event) => {
             table: TABLE_NAME.METRICES,
             Key: {
               database_id: databaseId,
-              date: "2024-11-18",
-              // date: getYesterdayDate,
+              date: getYesterdayDate,
             },
             UpdateExpression:
               "SET #popularity = :popularity, #ui_popularity = :ui_popularity ",

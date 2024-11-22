@@ -1,19 +1,18 @@
-const {
+import {
   getYesterdayDate,
   getTwoDaysAgoDate,
   sendResponse,
-  delay,
   calculateBingPopularity,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const {
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
   getItemByQuery,
   fetchAllItemByDynamodbIndex,
   updateItemInDynamoDB,
-} = require("../../helpers/dynamodb");
-const { getBingMetrics } = require("../../services/bingService");
+} from "../../helpers/dynamodb.js";
+import { getBingMetrics } from "../../services/bingService.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     console.log("Fetching all active databases for Bing data...");
 
@@ -109,14 +108,16 @@ module.exports.handler = async (event) => {
           date: getYesterdayDate,
         },
         UpdateExpression:
-          "SET #popularity = :popularity, #bingData = :bingData",
+          "SET #popularity = :popularity, #bingData = :bingData, #isBingDataCopied =:isBingDataCopied ",
         ExpressionAttributeNames: {
           "#popularity": "popularity",
           "#bingData": "bingData",
+          "#isBingDataCopied": "isBingDataCopied",
         },
         ExpressionAttributeValues: {
           ":popularity": updatedPopularity,
           ":bingData": bingData,
+          ":isBingDataCopied": isBingDataCopied,
         },
         ConditionExpression:
           "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",

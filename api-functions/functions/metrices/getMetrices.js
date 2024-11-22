@@ -1,11 +1,11 @@
-const { TABLE_NAME } = require("../../helpers/constants");
-const {
+import { TABLE_NAME } from "../../helpers/constants.js";
+import {
   getItem,
   fetchAllItemByDynamodbIndex,
-} = require("../../helpers/dynamodb");
-const { sendResponse } = require("../../helpers/helpers");
+} from "../../helpers/dynamodb.js";
+import { sendResponse } from "../../helpers/helpers.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     let startDate = "";
     let endDate = "";
@@ -97,7 +97,7 @@ const getDatabaseNameById = async (databaseId) => {
 const transformData = async (items) => {
   // Group items by `databaseId`
   const groupedData = items.reduce((acc, item) => {
-    const { database_id: databaseId, date, popularity } = item;
+    const { database_id: databaseId, date, popularity, ui_popularity } = item;
 
     // Ensure the database entry exists in the accumulator
     if (!acc[databaseId]) {
@@ -112,6 +112,7 @@ const transformData = async (items) => {
     acc[databaseId].metrics.push({
       date,
       popularity,
+      ui_popularity,
     });
 
     return acc;

@@ -1,9 +1,9 @@
-const { createItemInDynamoDB } = require("../../helpers/dynamodb");
-const { v4: uuidv4 } = require("uuid");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const { sendResponse } = require("../../helpers/helpers");
+import { createItemInDynamoDB } from "../../helpers/dynamodb.js";
+import { v4 as uuidv4 } from "uuid";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import { sendResponse } from "../../helpers/helpers.js";
 
-module.exports.handler = async (event, context, callback) => {
+export const handler = async (event, context, callback) => {
   // Parse the incoming request body
   let params = JSON.parse(event.body);
 

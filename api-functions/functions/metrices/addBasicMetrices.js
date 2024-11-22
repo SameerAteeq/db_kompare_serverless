@@ -1,25 +1,23 @@
-const {
+import {
   getYesterdayDate,
   getTwoDaysAgoDate,
   sendResponse,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const {
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
   getItem,
   getItemByQuery,
   createItemInDynamoDB,
   fetchAllItemByDynamodbIndex,
   batchWriteItems,
-} = require("../../helpers/dynamodb");
-const { getGitHubMetrics } = require("../../services/githubService");
-const { getGoogleMetrics } = require("../../services/googleService");
-const { getBingMetrics } = require("../../services/bingService");
-const {
-  getStackOverflowMetrics,
-} = require("../../services/stackOverflowService");
-const { v4: uuidv4 } = require("uuid");
+} from "../../helpers/dynamodb.js";
+import { getGitHubMetrics } from "../../services/githubService.js";
+import { getGoogleMetrics } from "../../services/googleService.js";
+import { getBingMetrics } from "../../services/bingService.js";
+import { getStackOverflowMetrics } from "../../services/stackOverflowService.js";
+import { v4 as uuidv4 } from "uuid";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     const databases = await fetchAllItemByDynamodbIndex({
       TableName: TABLE_NAME.DATABASES, // Use the table name constant

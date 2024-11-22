@@ -1,17 +1,17 @@
-const {
+import {
   getYesterdayDate,
   sendResponse,
   calculateGitHubPopularity,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const {
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
   getItemByQuery,
   fetchAllItemByDynamodbIndex,
   updateItemInDynamoDB,
-} = require("../../helpers/dynamodb");
-const { getGitHubMetrics } = require("../../services/githubService");
+} from "../../helpers/dynamodb.js";
+import { getGitHubMetrics } from "../../services/githubService.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     console.log("Fetching all active databases for GITHUB...");
 
@@ -59,11 +59,6 @@ module.exports.handler = async (event) => {
       });
 
       const metric = metricsData.Items[0];
-
-      // if Github data already exist in our database then it should skip that database
-      if (metric.githubData) {
-        continue;
-      }
 
       // Fetching Github Data here
       const githubData = await getGitHubMetrics(queries[0]);

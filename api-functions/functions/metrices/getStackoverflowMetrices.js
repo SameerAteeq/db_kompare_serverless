@@ -1,28 +1,17 @@
-const {
+import {
   getYesterdayDate,
-  getTwoDaysAgoDate,
   sendResponse,
-  delay,
   calculateStackOverflowPopularity,
-} = require("../../helpers/helpers");
-const { TABLE_NAME, DATABASE_STATUS } = require("../../helpers/constants");
-const {
-  getItem,
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
   getItemByQuery,
-  createItemInDynamoDB,
   fetchAllItemByDynamodbIndex,
-  batchWriteItems,
   updateItemInDynamoDB,
-} = require("../../helpers/dynamodb");
-const { getGitHubMetrics } = require("../../services/githubService");
-const { getGoogleMetrics } = require("../../services/googleService");
-const { getBingMetrics } = require("../../services/bingService");
-const {
-  getStackOverflowMetrics,
-} = require("../../services/stackOverflowService");
-const { v4: uuidv4 } = require("uuid");
+} from "../../helpers/dynamodb.js";
+import { getStackOverflowMetrics } from "../../services/stackOverflowService.js";
 
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     console.log("Fetching all active databases for stackOverflowData...");
 
@@ -71,10 +60,6 @@ module.exports.handler = async (event) => {
 
       const metric = metricsData.Items[0];
 
-      // if Google data already exist in our database then it should skip that database
-      if (metric.stackOverflowData) {
-        continue;
-      }
       // Fetch stackoverflow metrics
       const stackOverflowData = await getStackOverflowMetrics(
         stack_overflow_tag

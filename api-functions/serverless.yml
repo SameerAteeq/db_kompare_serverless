@@ -46,6 +46,7 @@ provider:
             - dynamodb:BatchWriteItem
           Resource:
             - ${self:custom.databasesTableArn}/index/byStatus
+            - ${self:custom.metricesTableArn}/index/byStatusAndDate
             - ${self:custom.databasesTableArn} # Permission for databases table
             - ${self:custom.metricesTableArn} # Permission for metrices table
 functions:
@@ -87,18 +88,18 @@ functions:
   #   events:
   #     - schedule:
   #         rate: rate(5 minutes)
-  # getGithubMetrices:
-  #   handler: functions/metrices/getGithubMetrices.handler
-  #   timeout: 300
-  #   events:
-  #     - schedule:
-  #         rate: cron(0 */3 * * ? *) # Runs every 3 hours
+  getGithubMetrices:
+    handler: functions/metrices/getGithubMetrices.handler
+    timeout: 300
+    events:
+      - schedule:
+          rate: cron(0 5 * * ? *)
+  getStackoverflowMetrices:
+    handler: functions/metrices/getStackoverflowMetrices.handler
+    events:
+      - schedule:
+          rate: cron(0 5 * * ? *) # Runs daily at 5:00 AM UTC
 
-  # getStackoverflowMetrices:
-  #   handler: functions/metrices/getStackoverflowMetrices.handler
-  #   events:
-  #     - schedule:
-  #         rate: cron(0 */3 * * ? *)
 
   # getGoogleMetrices:
   #   handler: functions/metrices/getGoogleMetrices.handler

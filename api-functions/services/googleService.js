@@ -1,5 +1,5 @@
-const axios = require("axios");
-const pLimit = require("p-limit");
+import axios from "axios";
+import pLimit from "p-limit";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID;
@@ -81,7 +81,7 @@ async function getGoogleMetrics(queries) {
   }
 }
 
-module.exports = { getGoogleMetrics };
+export { getGoogleMetrics };
 
 // const { delay } = require("../helpers/helpers.js");
 // const axios = require("axios");
