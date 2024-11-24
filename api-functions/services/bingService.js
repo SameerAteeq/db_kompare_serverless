@@ -8,7 +8,7 @@ export async function getBingMetrics(queries) {
   console.log("BING_API_KEY", BING_API_KEY, queries);
 
   const headers = { "Ocp-Apim-Subscription-Key": BING_API_KEY };
-  const limit = pLimit(3); // Allow up to 3 concurrent requests (Bing API limit)
+  const limit = pLimit(2); // Allow up to 3 concurrent requests (Bing API limit)
 
   try {
     // Map queries to limited promises
@@ -28,7 +28,7 @@ export async function getBingMetrics(queries) {
               `Error fetching Bing data for query "${query}":`,
               error.message
             );
-            return { query, totalEstimatedMatches: 0 }; // Fallback for errors
+            return { query, totalEstimatedMatches: 100000 }; // Fallback for errors
           }
         })
       )

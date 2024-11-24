@@ -255,4 +255,4 @@ async function getStackOverflowMetrics(databaseName) {
   }
 }
 
-module.exports = { getStackOverflowMetrics };
+export { getStackOverflowMetrics };

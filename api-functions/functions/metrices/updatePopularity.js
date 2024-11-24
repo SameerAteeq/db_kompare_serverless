@@ -88,14 +88,16 @@ export const handler = async (event) => {
               date: getYesterdayDate,
             },
             UpdateExpression:
-              "SET #popularity = :popularity, #ui_popularity = :ui_popularity ",
+              "SET #popularity = :popularity, #ui_popularity = :ui_popularity ,#includeMe = :includeMe",
             ExpressionAttributeNames: {
               "#popularity": "popularity",
               "#ui_popularity": "ui_popularity",
+              "#includeMe": "includeMe",
             },
             ExpressionAttributeValues: {
               ":popularity": updatedPopularity,
               ":ui_popularity": ui_popularity,
+              ":includeMe": "YES",
             },
             ConditionExpression:
               "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
