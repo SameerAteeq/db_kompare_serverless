@@ -1,8 +1,8 @@
+import Bottleneck from "bottleneck";
 import {
+  calculateGooglePopularity,
   getYesterdayDate,
   sendResponse,
-  calculateOverallPopularity,
-  adjustAndRecalculatePopularity,
 } from "../../helpers/helpers.js";
 import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
 import {
@@ -10,10 +10,17 @@ import {
   fetchAllItemByDynamodbIndex,
   updateItemInDynamoDB,
 } from "../../helpers/dynamodb.js";
+import { fetchGoogleData } from "../../services/googleService.js";
+
+// Global rate limiter
+const limiter = new Bottleneck({
+  maxConcurrent: 3, // Allow 3 concurrent requests
+  minTime: 100, // 100ms delay between requests (10 requests per second)
+});
 
 export const handler = async (event) => {
   try {
-    console.log("Fetching all active databases for Bing data...");
+    console.log("Fetching all active databases for Google data...");
 
     // Fetch all active databases
     const databases = await fetchAllItemByDynamodbIndex({
@@ -21,7 +28,7 @@ export const handler = async (event) => {
       IndexName: "byStatus",
       KeyConditionExpression: "#status = :statusVal",
       ExpressionAttributeValues: {
-        ":statusVal": DATABASE_STATUS.ACTIVE, // Active databases
+        ":statusVal": DATABASE_STATUS.ACTIVE,
       },
       ExpressionAttributeNames: {
         "#status": "status",
@@ -29,98 +36,102 @@ export const handler = async (event) => {
     });
 
     if (!databases || databases.length === 0) {
-      console.log("No active databases found for BING");
-      return sendResponse(404, "No active databases found for BING", null);
+      console.log("No active databases found for Google data.");
+      return sendResponse(404, "No active databases found for Google data.");
     }
 
-    // Use Promise.all to process databases concurrently
-    const updateResults = await Promise.all(
-      databases.map(async (db) => {
-        const { id: databaseId, queries, name } = db;
+    // Process each database
+    for (const db of databases) {
+      const { id: databaseId, queries, name } = db;
 
-        // Skip databases without queries
-        if (!queries || queries.length === 0) {
-          console.log(
-            `Skipped database_id: ${databaseId}, name: ${name} - No queries found.`
-          );
-          return { databaseId, success: false, reason: "No queries found" };
-        }
+      if (!queries || queries.length === 0) {
+        console.log(`Skipping database: ${name} (No queries).`);
+        continue;
+      }
 
-        try {
-          // Check if metrics exist for this database and date
-          const metricsData = await getItemByQuery({
-            table: TABLE_NAME.METRICES,
-            KeyConditionExpression:
-              "#database_id = :database_id and #date = :date",
-            ExpressionAttributeNames: {
-              "#database_id": "database_id",
-              "#date": "date",
-            },
-            ExpressionAttributeValues: {
-              ":database_id": databaseId,
-              ":date": getYesterdayDate,
-            },
-          });
+      // Check if metrics exist for this database and date
+      const metricsData = await getItemByQuery({
+        table: TABLE_NAME.METRICES,
+        KeyConditionExpression: "#database_id = :database_id and #date = :date",
+        ExpressionAttributeNames: {
+          "#database_id": "database_id",
+          "#date": "date",
+        },
+        ExpressionAttributeValues: {
+          ":database_id": databaseId,
+          ":date": "2024-11-25",
+          // ":date": getYesterdayDate,
+        },
+      });
 
-          const metric = metricsData.Items[0];
+      const metric = metricsData.Items[0];
 
-          // Skip if no metrics found
-          if (!metric) {
-            console.log(`No metrics found for name: ${name}`);
-            return { databaseId, success: false, reason: "No metrics found" };
-          }
+      // Skip if Google data already exists
+      // if (metric.googleData) {
+      //   continue;
+      // }
 
-          // Updating the popularity Object
-          const updatedPopularity = {
-            ...metric.popularity,
-            totalScore: calculateOverallPopularity(metric.popularity),
-          };
+      // Prepare the googleData array
+      const googleData = [];
 
-          const ui_popularity = adjustAndRecalculatePopularity(
-            metric.popularity
-          );
+      // Process first query with and without dateRestrict
+      googleData.push({
+        query: queries[0],
+        totalResultsWithoutDate: await limiter.schedule(() =>
+          fetchGoogleData(queries[0], false)
+        ),
+      });
 
-          // Updating the database to add BING data and BING score in our database
-          await updateItemInDynamoDB({
-            table: TABLE_NAME.METRICES,
-            Key: {
-              database_id: databaseId,
-              date: getYesterdayDate,
-            },
-            UpdateExpression:
-              "SET #popularity = :popularity, #ui_popularity = :ui_popularity ,#includeMe = :includeMe",
-            ExpressionAttributeNames: {
-              "#popularity": "popularity",
-              "#ui_popularity": "ui_popularity",
-              "#includeMe": "includeMe",
-            },
-            ExpressionAttributeValues: {
-              ":popularity": updatedPopularity,
-              ":ui_popularity": ui_popularity,
-              ":includeMe": "YES",
-            },
-            ConditionExpression:
-              "attribute_exists(#popularity) OR attribute_not_exists(#popularity)",
-          });
+      googleData.push({
+        query: queries[0],
+        totalResultsWithDate: await limiter.schedule(() =>
+          fetchGoogleData(queries[0], true)
+        ),
+      });
 
-          console.log(`Successfully updated popularity for name: ${name}`);
-          return { databaseId, success: true };
-        } catch (error) {
-          console.error(
-            `Error updating popularity for database_id: ${databaseId}, name: ${name}`,
-            error
-          );
-          return { databaseId, success: false, reason: error.message };
-        }
-      })
-    );
+      // Process remaining queries with dateRestrict
+      const remainingResults = await Promise.all(
+        queries.slice(1).map((query) =>
+          limiter.schedule(() =>
+            fetchGoogleData(query, true).then((totalResults) => ({
+              query,
+              totalResults,
+            }))
+          )
+        )
+      );
+      googleData.push(...remainingResults);
+      console.log(`googleData for ${name}:`, googleData);
+      const updatedPopularity = {
+        ...metric?.popularity,
+        googleScore: calculateGooglePopularity(googleData),
+      };
+      // Update DynamoDB with googleData
+      await updateItemInDynamoDB({
+        table: TABLE_NAME.METRICES,
+        Key: {
+          database_id: databaseId,
+          date: "2024-11-25",
+        },
+        UpdateExpression:
+          "SET #popularity = :popularity, #googleData = :googleData",
+        ExpressionAttributeNames: {
+          "#popularity": "popularity",
+          "#googleData": "googleData",
+        },
+        ExpressionAttributeValues: {
+          ":popularity": updatedPopularity,
+          ":googleData": googleData,
+        },
+      });
 
-    console.log("Update results:", updateResults);
+      console.log(`Successfully updated Google data for database: ${name}`);
+    }
 
-    return sendResponse(200, "Popularity updated successfully", true);
+    return sendResponse(200, "Google data updated successfully.");
   } catch (error) {
-    console.error("Error updating popularity metrics:", error);
-    return sendResponse(500, "Failed to update popularity metrics", {
+    console.error("Error processing Google metrics:", error);
+    return sendResponse(500, "Failed to process Google metrics.", {
       error: error.message,
     });
   }
