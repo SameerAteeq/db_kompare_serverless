@@ -196,8 +196,10 @@ export const fetchAllItemByDynamodbIndex = async ({
   FilterExpression = null,
   ExpressionAttributeNames = null,
   Limit = null,
+  CountOnly = false, // Add a new parameter to specify if we want only the count
 }) => {
   let lastEvaluatedKey;
+  let totalCount = 0;
   const allItems = [];
 
   try {
@@ -223,9 +225,20 @@ export const fetchAllItemByDynamodbIndex = async ({
         params.Limit = Limit;
       }
 
+      if (CountOnly) {
+        params.Select = "COUNT"; // Only fetch the count if CountOnly is true
+      }
+
       const response = await DynamoDBClient.query(params).promise();
 
-      allItems.push(...response.Items);
+      if (CountOnly) {
+        // Increment the total count from each page
+        totalCount += response.Count;
+      } else {
+        // Accumulate all the items
+        allItems.push(...response.Items);
+      }
+
       lastEvaluatedKey = response.LastEvaluatedKey;
     } while (lastEvaluatedKey);
   } catch (error) {
@@ -233,5 +246,5 @@ export const fetchAllItemByDynamodbIndex = async ({
     throw new Error("Error fetching items from DynamoDB");
   }
 
-  return allItems;
+  return CountOnly ? totalCount : allItems; // Return totalCount or allItems based on CountOnly
 };

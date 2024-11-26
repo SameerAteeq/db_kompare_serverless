@@ -176,3 +176,15 @@ export const getPopularityByFormula = (resourceType, data) => {
       throw new Error("Invalid resource type");
   }
 };
+
+export const getPastThreeDates = () => {
+  const startDate = moment().subtract(3, "days").format("YYYY-MM-DD");
+  const endDate = moment().subtract(1, "days").format("YYYY-MM-DD");
+  const middleDate = moment().subtract(2, "days").format("YYYY-MM-DD");
+  // Return dates as an object
+  return {
+    startDate: startDate,
+    middleDate: middleDate,
+    endDate: endDate,
+  };
+};

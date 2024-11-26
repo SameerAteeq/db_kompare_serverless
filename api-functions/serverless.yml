@@ -31,6 +31,10 @@ provider:
     GOOGLE_CSE_ID: ${env:GOOGLE_CSE_ID}
     BING_API_KEY: ${env:BING_API_KEY}
 
+  apiGateway:
+    apiKeys:
+      - name: myFirstKey
+
   iam:
     role:
       statements:
@@ -56,12 +60,16 @@ functions:
       - http:
           path: /create-database
           method: post
+          private: true
+          cors: true
   getallDatabases:
     handler: functions/databases/getAllDatabases.handler
     events:
       - http:
           path: /get-databases
           method: get
+          private: true
+          cors: true
   getDatabasesByIds:
     handler: functions/databases/getDatabaseByIds.handler
     events:
@@ -69,6 +77,7 @@ functions:
           path: /get-database-by-ids
           method: post
           cors: true
+          private: true
   addMetrices:
     handler: functions/metrices/addMetrices.handler
     timeout: 120
@@ -76,6 +85,8 @@ functions:
       - http:
           path: /add-metrices
           method: post
+          cors: true
+          private: true
   getMetrices:
     handler: functions/metrices/getMetrices.handler
     events:
@@ -83,11 +94,15 @@ functions:
           path: /get-metrices
           method: post
           cors: true
-  # addBasicMetrices:
-  #   handler: functions/metrices/addBasicMetrices.handler
-  #   events:
-  #     - schedule:
-  #         rate: rate(5 minutes)
+          private: true
+  getDatabasesCount:
+    handler: functions/databases/getDatabasesCount.handler
+    events:
+      - http:
+          path: /get-databases-count
+          method: get
+          cors: true
+          private: true
   getGithubMetrices:
     handler: functions/metrices/getGithubMetrices.handler
     timeout: 300
@@ -104,17 +119,17 @@ functions:
     handler: functions/metrices/getGoogleMetrices.handler
     events:
       - schedule:
-          rate: cron(0 13 * * ? *) # Runs daily at 1:00 PM UTC
+          rate: cron(15 5 * * ? *) # Runs daily at 5:15 PM UTC
 
   getBingMetrices:
     handler: functions/metrices/getBingMetrices.handler
     timeout: 300
     events:
       - schedule:
-          rate: cron(15 13 * * ? *) # Runs daily at 1:15 PM UTC
+          rate: cron(30 5 * * ? *) # Runs daily at 5:30 PM UTC
 
   updatePopularity:
     handler: functions/metrices/updatePopularity.handler
     events:
       - schedule:
-          rate: cron(20 13 * * ? *)
+          rate: cron(40 5 * * ? *) # Runs daily at 5:40 PM UTC
