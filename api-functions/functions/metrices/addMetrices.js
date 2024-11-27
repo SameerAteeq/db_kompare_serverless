@@ -33,7 +33,7 @@ export const handler = async (event) => {
     }
 
     // Fetch metrics data for the previous day (yesterday)
-    const yesterday = getYesterdayDate; // Ensure this returns the correct date string (e.g., '2024-11-23')
+    const yesterday = "2024-11-18"; // Ensure this returns the correct date string (e.g., '2024-11-23')
 
     // Process each database in parallel using Promise.all
     const databasesWithRankings = await Promise.all(
@@ -51,7 +51,7 @@ export const handler = async (event) => {
           },
           ExpressionAttributeValues: {
             ":database_id": databaseId,
-            ":date": "2024-11-22",
+            ":date": yesterday,
           },
         });
 
@@ -61,9 +61,9 @@ export const handler = async (event) => {
         }
 
         const metric = metricsData.Items[0];
-        console.log("metric", metric, metricsData);
+
         // Extract ui_popularity.totalScore
-        const uiPopularity = metric?.ui_popularity?.totalScore;
+        const uiPopularity = metric?.ui_popularity;
 
         // Return the object containing database details and its popularity score
         return {
@@ -79,18 +79,17 @@ export const handler = async (event) => {
 
     // Sort the databases by ui_popularity.totalScore in descending order
     const sortedDatabases = validDatabases.sort(
-      (a, b) => b.uiPopularity - a.uiPopularity
+      (a, b) => b.uiPopularity.totalScore - a.uiPopularity.totalScore
     );
 
     // Create ranking items
     const batchItems = sortedDatabases.map((db, index) => ({
       database_id: db.databaseId,
-      databaseName: db.name,
-      date: "2024-11-22",
+      date: yesterday,
       rank: index + 1, // Rank starts from 1
       totalScore: db.uiPopularity,
     }));
-    console.log("batchItems", batchItems);
+
     // Save the rankings in the DatabaseRankings table using batch write
     if (batchItems.length > 0) {
       await batchWriteItems(TABLE_NAME.DATABASE_RANKINGS, batchItems);
