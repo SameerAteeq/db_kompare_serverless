@@ -177,14 +177,45 @@ export const getPopularityByFormula = (resourceType, data) => {
   }
 };
 
-export const getPastThreeDates = () => {
-  const startDate = moment().subtract(3, "days").format("YYYY-MM-DD");
-  const endDate = moment().subtract(1, "days").format("YYYY-MM-DD");
-  const middleDate = moment().subtract(2, "days").format("YYYY-MM-DD");
-  // Return dates as an object
-  return {
-    startDate: startDate,
-    middleDate: middleDate,
-    endDate: endDate,
-  };
+export const getMiddleDate = (date1, date2) => {
+  // Parse the dates using moment
+  const startDate = moment(date1);
+  const endDate = moment(date2);
+
+  // Check if both dates are valid
+  if (!startDate.isValid() || !endDate.isValid()) {
+    throw new Error("Invalid date(s) provided.");
+  }
+
+  // Calculate the difference between the two dates in milliseconds
+  const diffInMilliseconds = endDate.diff(startDate);
+
+  // Calculate the middle date by adding half of the difference to the start date
+  const middleDate = startDate.add(diffInMilliseconds / 2, "milliseconds");
+
+  // Return the middle date in desired format (e.g., "YYYY-MM-DD")
+  return middleDate.format("YYYY-MM-DD");
+};
+
+export const getAdjustedDates = () => {
+  // Get the current UTC time
+  const currentUtcTime = moment.utc();
+  console.log("currentUtcTime", currentUtcTime);
+  // Define the time threshold for 5:00 AM UTC
+  const thresholdTime = moment
+    .utc()
+    .set({ hour: 5, minute: 0, second: 0, millisecond: 0 });
+
+  // If the current time is before 5:00 AM UTC today, adjust to the previous day's dates
+  if (currentUtcTime.isBefore(thresholdTime)) {
+    currentUtcTime.subtract(1, "days"); // Subtract 1 day if before 5:00 AM UTC
+  }
+
+  // Get the startDate and endDate for the database, assuming they are dynamic
+  // Example: starting from current date
+  const startDate = currentUtcTime.subtract(3, "days").format("YYYY-MM-DD"); // Format as '2024-11-23'
+  const endDate = currentUtcTime.subtract(1, "days").format("YYYY-MM-DD"); // Add 2 days for endDate
+
+  // Return the adjusted dates
+  return { startDate, endDate };
 };

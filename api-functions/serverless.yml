@@ -9,6 +9,7 @@ custom:
   lambdaInitialArn: arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}
   databasesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.DATABASES_TABLE}
   metricesTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.METRICES_TABLE}
+  databaseRankingTableArn: arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:provider.environment.RANKING_TABLE}
   serverless-offline:
     httpPort: 4000
 
@@ -25,6 +26,7 @@ provider:
   environment:
     DATABASES_TABLE: db-kompare-databases-${self:provider.stage}
     METRICES_TABLE: db-kompare-metrices-${self:provider.stage}
+    RANKING_TABLE: db-kompare-metrices-${self:provider.stage}
     STACK_API_KEY: ${env:STACK_API_KEY}
     GITHUB_TOKEN: ${env:GITHUB_TOKEN}
     GOOGLE_API_KEY: ${env:GOOGLE_API_KEY}
@@ -53,6 +55,7 @@ provider:
             - ${self:custom.metricesTableArn}/index/byStatusAndDate
             - ${self:custom.databasesTableArn} # Permission for databases table
             - ${self:custom.metricesTableArn} # Permission for metrices table
+            - ${self:custom.databaseRankingTableArn} # Permission for metrices table
 functions:
   createDatabase:
     handler: functions/databases/createDatabase.handler

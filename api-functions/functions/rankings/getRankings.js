@@ -1,100 +1,105 @@
-import { TABLE_NAME } from "../../helpers/constants.js";
 import {
-  getItem,
+  getYesterdayDate,
+  sendResponse,
+  calculateGitHubPopularity,
+} from "../../helpers/helpers.js";
+import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
+import {
+  getItemByQuery,
   fetchAllItemByDynamodbIndex,
+  batchWriteItems,
 } from "../../helpers/dynamodb.js";
-import { getPastThreeDates, sendResponse } from "../../helpers/helpers.js";
 
 export const handler = async (event) => {
   try {
-    const { startDate, endDate, middleDate } = getPastThreeDates();
+    console.log("Fetching all active databases...");
 
-    // Define the base query parameters
-    let queryParams = {
-      TableName: TABLE_NAME.METRICES,
-      IndexName: "byStatusAndDate",
-      KeyConditionExpression:
-        "#includeMe = :includeMeVal , AND #date BETWEEN :startDate AND :endDate",
-      ExpressionAttributeNames: {
-        "#includeMe": "includeMe",
-        "#date": "date",
-      },
+    // Fetch all active databases
+    const databases = await fetchAllItemByDynamodbIndex({
+      TableName: TABLE_NAME.DATABASES,
+      IndexName: "byStatus",
+      KeyConditionExpression: "#status = :statusVal",
       ExpressionAttributeValues: {
-        ":includeMeVal": "YES",
-        ":startDate": startDate,
-        ":endDate": endDate,
+        ":statusVal": DATABASE_STATUS.ACTIVE, // Active databases
       },
-    };
+      ExpressionAttributeNames: {
+        "#status": "status",
+      },
+    });
 
-    // Fetch items from DynamoDB
-    const items = await fetchAllItemByDynamodbIndex(queryParams);
-    const transformedData = await transformData(
-      items,
-      startDate,
-      middleDate,
-      endDate
+    if (!databases || databases.length === 0) {
+      console.log("No active databases found.");
+      return sendResponse(404, "No active databases found.", null);
+    }
+
+    // Fetch metrics data for the previous day (yesterday)
+    const yesterday = getYesterdayDate; // Ensure this returns the correct date string (e.g., '2024-11-23')
+
+    // Process each database in parallel using Promise.all
+    const databasesWithRankings = await Promise.all(
+      databases.map(async (db) => {
+        const { id: databaseId, name } = db;
+
+        // Check if metrics exist for this database and date
+        const metricsData = await getItemByQuery({
+          table: TABLE_NAME.METRICES,
+          KeyConditionExpression:
+            "#database_id = :database_id and #date = :date",
+          ExpressionAttributeNames: {
+            "#database_id": "database_id",
+            "#date": "date",
+          },
+          ExpressionAttributeValues: {
+            ":database_id": databaseId,
+            ":date": yesterday,
+          },
+        });
+
+        if (!metricsData || metricsData.Items.length === 0) {
+          console.log(`No metrics found for database_id: ${databaseId}`);
+          return null;
+        }
+
+        const metric = metricsData.Items[0];
+
+        // Extract ui_popularity.totalScore
+        const uiPopularity = metric?.ui_popularity?.totalScore;
+
+        // Return the object containing database details and its popularity score
+        return {
+          databaseId,
+          name,
+          uiPopularity,
+        };
+      })
     );
-    return sendResponse(200, "Fetch metrices successfully", transformedData);
-  } catch (error) {
-    console.error("Error fetching metrices:", error);
-    return sendResponse(500, "Failed to fetch metrices", {
-      error: error.message,
-    });
-  }
-};
 
-// Get database name
-const getDatabaseNameById = async (databaseId) => {
-  const key = {
-    id: databaseId,
-  };
-  try {
-    const result = await getItem(TABLE_NAME.DATABASES, key);
-    if (result.Item) {
-      return result.Item;
-    }
-    return "Unknown"; // Fallback if the database name is not found
-  } catch (error) {
-    console.error(`Error fetching database name for ID ${databaseId}:`, error);
-    throw error;
-  }
-};
+    // Filter out any null results (i.e., databases with no metrics)
+    const validDatabases = databasesWithRankings.filter(Boolean);
 
-const transformData = async (items, startDate, middleDate, endDate) => {
-  // Group items by `databaseId`
-  const groupedData = items.reduce((acc, item) => {
-    const { database_id: databaseId, date, popularity, ui_popularity } = item;
+    // Sort the databases by ui_popularity.totalScore in descending order
+    const sortedDatabases = validDatabases.sort(
+      (a, b) => b.uiPopularity - a.uiPopularity
+    );
 
-    // Ensure the database entry exists in the accumulator
-    if (!acc[databaseId]) {
-      acc[databaseId] = {
-        databaseId,
-        databaseName: "Fetching...",
-        databaseModel: "Fetching...",
-        ranking: [],
-        score: [],
-      };
+    // Create ranking items
+    const batchItems = sortedDatabases.map((db, index) => ({
+      database_id: db.databaseId,
+      date: yesterday,
+      rank: index + 1, // Rank starts from 1
+      totalScore: db.uiPopularity,
+    }));
+
+    // Save the rankings in the DatabaseRankings table using batch write
+    if (batchItems.length > 0) {
+      await batchWriteItems(TABLE_NAME.DATABASE_RANKINGS, batchItems);
+      console.log(`Successfully updated daily rankings for ${yesterday}`);
     }
 
-    // Add score
-    acc[databaseId].score.push({
-      date,
-    });
-
-    return acc;
-  }, {});
-
-  // Fetch database names for each unique databaseId
-  const databaseIds = Object.keys(groupedData);
-  await Promise.all(
-    databaseIds.map(async (databaseId) => {
-      const databaseDetail = await getDatabaseNameById(databaseId);
-      groupedData[databaseId].databaseName = databaseDetail.name;
-      groupedData[databaseId].databaseModel =
-        databaseDetail.primary_database_model;
-    })
-  );
-
-  // Convert the grouped object to an array
-  return Object.values(groupedData);
+    // Finally, sending the response
+    return sendResponse(200, "Rankings updated successfully", true);
+  } catch (error) {
+    console.error("Error updating rankings:", error);
+    return sendResponse(500, "Failed to update rankings", error.message);
+  }
 };

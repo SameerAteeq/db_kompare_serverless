@@ -109,7 +109,11 @@
 // };
 
 import Bottleneck from "bottleneck";
-import { getYesterdayDate, sendResponse } from "../../helpers/helpers.js";
+import {
+  calculateGooglePopularity,
+  getYesterdayDate,
+  sendResponse,
+} from "../../helpers/helpers.js";
 import { TABLE_NAME, DATABASE_STATUS } from "../../helpers/constants.js";
 import {
   getItemByQuery,
