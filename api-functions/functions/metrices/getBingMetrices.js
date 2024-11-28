@@ -85,15 +85,26 @@ export const handler = async (event) => {
       let bingData = [];
       let isBingDataCopied;
 
-      // Checking if the data is copied or fresh in our database then updating values according to that
-      if (twoDaysAgoMetrics.Items[0]?.isBingDataCopied) {
+      // If twoDaysAgoMetrics doesn't exist or Items is empty, fetch new data
+      if (!twoDaysAgoMetrics?.Items?.length) {
+        // Data doesn't exist, fetch new data
         bingData = await getBingMetrics(queries);
-        isBingDataCopied = false; // Indicates data is fresh
+        isBingDataCopied = false; // Fresh data
       } else {
-        bingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
-        isBingDataCopied = true; // Indicates data is reused
-      }
+        // Data exists, check the "isBingDataCopied" flag
+        const existingBingData = twoDaysAgoMetrics.Items[0]?.bingData || [];
+        const isCopied = twoDaysAgoMetrics.Items[0]?.isBingDataCopied;
 
+        if (isCopied) {
+          // If data is copied, reuse the existing data
+          bingData = existingBingData;
+          isBingDataCopied = true;
+        } else {
+          // If data is not copied, fetch fresh data
+          bingData = await getBingMetrics(queries);
+          isBingDataCopied = false; // Fresh data
+        }
+      }
       // Updating the popularity Object
       const updatedPopularity = {
         ...metric?.popularity,
