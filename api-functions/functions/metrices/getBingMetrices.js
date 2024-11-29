@@ -96,13 +96,12 @@ export const handler = async (event) => {
         const isCopied = twoDaysAgoMetrics.Items[0]?.isBingDataCopied;
 
         if (isCopied) {
-          // If data is copied, reuse the existing data
-          bingData = existingBingData;
-          isBingDataCopied = true;
-        } else {
-          // If data is not copied, fetch fresh data
+          // If data is copied, fetch new data
           bingData = await getBingMetrics(queries);
           isBingDataCopied = false; // Fresh data
+        } else {
+          bingData = existingBingData;
+          isBingDataCopied = true;
         }
       }
       // Updating the popularity Object
