@@ -1,5 +1,4 @@
 
----
 
 # DB-Kompare Backend AWS Serverless
 
