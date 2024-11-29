@@ -15,7 +15,7 @@ cd aws-serverless-nodejs
 ```
 
 ### 2. Install Dependencies
-Install the required Node.js packages:
+Install the required Node.js packages for specific stacks. In our Project only api-functions needs node modules.
 ```bash
 npm install
 ```
