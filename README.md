@@ -1,8 +1,7 @@
-Certainly! Here's the updated **README** that includes instructions on **how to configure AWS CLI**:
 
 ---
 
-# AWS Serverless Framework Project (Node.js)
+# DB-Kompare Backend AWS Serverless
 
 This is a serverless application using the **AWS Serverless Framework** with **Node.js**. Follow the steps below to run the project on your AWS account.
 
@@ -33,25 +32,20 @@ To interact with AWS, you'll need to configure the **AWS CLI** with your AWS cre
    ```
 
 3. **Provide your AWS credentials** when prompted:
-   - **AWS Access Key ID**: You can find this in the **IAM console** in your AWS account. If you don't have one, you’ll need to create an **IAM user** with programmatic access.
-   - **AWS Secret Access Key**: This is also available in the IAM console when you create the user.
-   - **Default region name**: The AWS region you want to deploy to (e.g., `us-east-1`).
-   - **Default output format**: You can leave this blank or choose `json`.
 
    Example:
    ```bash
    AWS Access Key ID [None]: <Your-Access-Key-ID>
    AWS Secret Access Key [None]: <Your-Secret-Access-Key>
-   Default region name [None]: us-east-1
+   Default region name [None]: Your Region
    Default output format [None]: json
    ```
 
 ### 4. Configure Your Project
 - Open the `serverless.yml` file.
 - Update any configuration variables, such as:
-  - **AWS Region**: Ensure the region matches your `aws configure` setup (e.g., `us-east-1`).
-  - **DynamoDB Table Names** (if applicable).
-  - **Environment Variables**: Set any environment variables your functions require.
+  - **AWS Region**: Ensure the region matches your `aws configure` setup.
+  - **Environment Variables**: Add Environment variables file. (.env file is only for api-functions)
 
 ### 5. Deploy the Project to AWS
 Deploy your serverless application to AWS using the Serverless Framework:
