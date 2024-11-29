@@ -231,7 +231,7 @@ const calculateChanges = (data, mostRecentData) => {
   // Calculate the score differences and rank changes for each day (excluding the most recent date)
   data.forEach((item) => {
     if (item.date !== mostRecentData.date) {
-      const scoreDifference = item.totalScore - mostRecentData.totalScore;
+      const scoreDifference = mostRecentData.totalScore - item.totalScore;
       scoreChanges.push({
         date: item.date,
         totalScore: scoreDifference,
